@@ -51,7 +51,7 @@ Ett block i kedjan. Alla tider är ISO 8601 i UTC.
   "prevHash": "9f2c1a…e41b",
   "hash": "a71d0c…5f09",
   "data": {
-    "userId": 3,
+    "userId": 1,
     "role": "lakare",
     "patientId": 1,
     "action": "read",
@@ -136,10 +136,10 @@ Auth: ingen.
 
 ```json
 // request
-{ "username": "lakare1", "password": "hemligt" }
+{ "username": "lakare1", "password": "demo1234" }
 
 // 200, sätter cookie
-{ "id": 3, "role": "lakare", "displayName": "Dr. Lindberg", "linkedPatientId": null }
+{ "id": 1, "role": "lakare", "displayName": "Dr. Lindberg", "linkedPatientId": null }
 ```
 
 Fel: `400` om fält saknas, `401` vid fel användarnamn eller lösenord.
@@ -150,7 +150,7 @@ Auth: cookie.
 
 ```json
 // 200
-{ "id": 7, "role": "patient", "displayName": "Anna Karlsson", "linkedPatientId": 1 }
+{ "id": 4, "role": "patient", "displayName": "Anna Karlsson", "linkedPatientId": 1 }
 ```
 
 Fel: `401` om cookie saknas eller är ogiltig. `linkedPatientId` är satt bara för rollen `patient`.
@@ -209,10 +209,10 @@ aldrig anteckningar den inte får se:
     {
       "id": 11,
       "patientId": 1,
-      "authorId": 3,
+      "authorId": 1,
       "authorName": "Dr. Lindberg",
       "authorRole": "lakare",
-      "text": "Förbättrad rörlighet efter sjukgymnastik. Återbesök om 3 veckor.",
+      "text": "Patient reports improved mobility after physical therapy. Follow-up in 3 weeks.",
       "visibility": "everyone",
       "createdAt": "2026-09-12T12:32:00.000Z"
     }
@@ -239,10 +239,10 @@ Svaret är samma array, med samma filtrering och sortering, som `notes` i
   {
     "id": 11,
     "patientId": 1,
-    "authorId": 3,
+    "authorId": 1,
     "authorName": "Dr. Lindberg",
     "authorRole": "lakare",
-    "text": "Förbättrad rörlighet efter sjukgymnastik. Återbesök om 3 veckor.",
+    "text": "Patient reports improved mobility after physical therapy. Follow-up in 3 weeks.",
     "visibility": "everyone",
     "createdAt": "2026-09-12T12:32:00.000Z"
   }
@@ -261,10 +261,10 @@ Skapar ett `write`-block och skickar `note:created` (se Socket-events).
 
 // 201
 {
-  "id": 12,
+  "id": 14,
   "patientId": 1,
-  "authorId": 5,
-  "authorName": "Sjuksköterska Åström",
+  "authorId": 2,
+  "authorName": "Nurse Åström",
   "authorRole": "sjukskoterska",
   "text": "Blodtryck och vitalparametrar normala.",
   "visibility": "staff",
@@ -288,7 +288,7 @@ Byggs av alla kända noders kedjor, filtreras på `patientId` och sorteras på
 [
   {
     "id": "node-3001-42",
-    "userId": 3,
+    "userId": 1,
     "name": "Dr. Lindberg",
     "role": "lakare",
     "action": "read",
@@ -338,7 +338,7 @@ av avsändarens kedja.
     "nodeId": "node-3001",
     "prevHash": "9f2c1a…e41b",
     "hash": "a71d0c…5f09",
-    "data": { "userId": 3, "role": "lakare", "patientId": 1, "action": "read", "signature": "t4kP…Dg==", "publicKey": "-----BEGIN PUBLIC KEY-----\n…" }
+    "data": { "userId": 1, "role": "lakare", "patientId": 1, "action": "read", "signature": "t4kP…Dg==", "publicKey": "-----BEGIN PUBLIC KEY-----\n…" }
   }
 }
 ```
@@ -374,10 +374,10 @@ skickar bara anteckningen till de klienter i rummet som får se den enligt `visi
 {
   "originNodeId": "node-3001",
   "note": {
-    "id": 12,
+    "id": 14,
     "patientId": 1,
-    "authorId": 5,
-    "authorName": "Sjuksköterska Åström",
+    "authorId": 2,
+    "authorName": "Nurse Åström",
     "authorRole": "sjukskoterska",
     "text": "Blodtryck och vitalparametrar normala.",
     "visibility": "staff",
