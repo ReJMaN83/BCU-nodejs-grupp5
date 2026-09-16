@@ -1,0 +1,93 @@
+.search-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0a1929 0%, #0f2d4a 50%, #0a1929 100%);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  padding: 48px 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.search-container {
+  width: 100%;
+  max-width: 560px;
+}
+
+.search-header {
+  margin-bottom: 24px;
+}
+
+.search-title {
+  color: #f0f4f8;
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.search-subtitle {
+  color: #8ba3bd;
+  font-size: 14px;
+  margin: 0;
+}
+
+.search-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #12233b;
+  border: 1px solid #274a6d;
+  border-radius: 8px;
+  padding: 14px 16px;
+  color: #f0f4f8;
+  font-size: 15px;
+  margin-bottom: 20px;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #3b82c4;
+}
+
+.search-input::placeholder {
+  color: #4a6785;
+}
+
+.patient-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.patient-item {
+  background: #12233b;
+  border: 1px solid #1e3a5f;
+  border-radius: 10px;
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.patient-item:hover {
+  border-color: #3b82c4;
+  background: #16294a;
+}
+
+.patient-item-name {
+  color: #f0f4f8;
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.patient-item-id {
+  color: #6688a8;
+  font-size: 13px;
+}
+
+.patient-list-empty {
+  color: #6688a8;
+  font-size: 14px;
+  text-align: center;
+  padding: 24px 0;
+}
