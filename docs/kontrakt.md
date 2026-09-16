@@ -55,7 +55,7 @@ Ett block i kedjan. Alla tider är ISO 8601 i UTC.
     "role": "lakare",
     "patientId": 1,
     "action": "read",
-    "signature": "MEUCIQ…==",
+    "signature": "t4kP…Dg==",
     "publicKey": "-----BEGIN PUBLIC KEY-----\n…\n-----END PUBLIC KEY-----\n"
   }
 }
@@ -78,8 +78,26 @@ Ett block i kedjan. Alla tider är ISO 8601 i UTC.
 | `role` | sträng | Användarens roll vid åtkomsten |
 | `patientId` | heltal | Journalen som lästes eller skrevs i |
 | `action` | `"read"` \| `"write"` | Läsning eller ny anteckning |
-| `signature` | sträng | Base64-signatur med användarens privata nyckel över `JSON.stringify({ userId, role, patientId, action, timestamp })`, där `timestamp` är blockets |
-| `publicKey` | sträng | Användarens publika nyckel (PEM) för verifiering |
+| `signature` | sträng | Ed25519-signatur i base64 med användarens privata nyckel, se nedan |
+| `publicKey` | sträng | Användarens publika Ed25519-nyckel (PEM, SPKI) för verifiering |
+
+**Signering: beslutat 2026-09-16.** Algoritmen är Ed25519 via `node:crypto`. Det som
+signeras är `JSON.stringify({ userId, role, patientId, action, timestamp })` med
+fälten i exakt den ordningen, där `timestamp` är blockets.
+
+```js
+import { generateKeyPairSync, sign, verify } from 'node:crypto';
+
+const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+
+const payload = Buffer.from(JSON.stringify({ userId, role, patientId, action, timestamp }));
+const signature = sign(null, payload, privateKey).toString('base64');
+const publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' });
+
+verify(null, payload, publicKeyPem, Buffer.from(signature, 'base64')); // true
+```
+
+Med Ed25519 ska algoritmargumentet vara `null`.
 
 > **Ingen journaltext får ligga i `data`.** Inga anteckningar, diagnoser, namn eller
 > personnummer. Bara id, roll och typ av åtkomst.
@@ -166,29 +184,54 @@ returneras alla patienter.
 
 Auth: personal, eller `patient` om `id` är hens `linkedPatientId`. Andra får `403`.
 
+Returnerar patienten med anteckningar, och det här är anropet patientvyn använder.
 Skapar ett `read`-block.
 
-```json
-// 200
-{ "id": 1, "fullName": "Anna Karlsson", "personalId": "19850312-4521" }
-```
-
-Fel: `404` om patienten inte finns.
-
-#### `GET /api/patients/:id/notes`
-
-Auth: samma som `GET /api/patients/:id`.
-
-Servern filtrerar på synlighet innan svaret skickas, och klienten får aldrig anteckningar
-den inte får se:
+**Beslutat 2026-09-16.** Synlighetsvärdena följer klienten (PR #61). Servern
+filtrerar `notes` efter den inloggades roll innan svaret skickas, så klienten får
+aldrig anteckningar den inte får se:
 
 | `visibility` | Syns för |
 |---|---|
 | `private` | Bara författaren |
 | `staff` | All personal |
-| `all` | All personal och patienten själv |
+| `everyone` | All personal och patienten själv |
 
-Nyaste anteckningen först.
+`notes` sorteras med den nyaste först.
+
+```json
+// 200
+{
+  "id": 1,
+  "fullName": "Anna Karlsson",
+  "personalId": "19850312-4521",
+  "notes": [
+    {
+      "id": 11,
+      "patientId": 1,
+      "authorId": 3,
+      "authorName": "Dr. Lindberg",
+      "authorRole": "lakare",
+      "text": "Förbättrad rörlighet efter sjukgymnastik. Återbesök om 3 veckor.",
+      "visibility": "everyone",
+      "createdAt": "2026-09-12T12:32:00.000Z"
+    }
+  ]
+}
+```
+
+Fel: `404` om patienten inte finns.
+
+#### `GET /api/patients/:id/notes` (valfri)
+
+> **Används inte av patientvyn.** Patientvyn får anteckningarna via
+> `GET /api/patients/:id`. Den här endpointen behöver inte finnas för v38. Den är
+> till för att hämta om bara anteckningarna utan att skapa ett nytt `read`-block.
+
+Auth: samma som `GET /api/patients/:id`.
+
+Svaret är samma array, med samma filtrering och sortering, som `notes` i
+`GET /api/patients/:id`.
 
 ```json
 // 200
@@ -200,7 +243,7 @@ Nyaste anteckningen först.
     "authorName": "Dr. Lindberg",
     "authorRole": "lakare",
     "text": "Förbättrad rörlighet efter sjukgymnastik. Återbesök om 3 veckor.",
-    "visibility": "all",
+    "visibility": "everyone",
     "createdAt": "2026-09-12T12:32:00.000Z"
   }
 ]
@@ -229,7 +272,7 @@ Skapar ett `write`-block och skickar `note:created` (se Socket-events).
 }
 ```
 
-Fel: `400` om `text` är tom eller `visibility` inte är `private`, `staff` eller `all`.
+Fel: `400` om `text` är tom eller `visibility` inte är `private`, `staff` eller `everyone`.
 `404` om patienten inte finns.
 
 #### `GET /api/patients/:id/access-log`
@@ -295,7 +338,7 @@ av avsändarens kedja.
     "nodeId": "node-3001",
     "prevHash": "9f2c1a…e41b",
     "hash": "a71d0c…5f09",
-    "data": { "userId": 3, "role": "lakare", "patientId": 1, "action": "read", "signature": "MEUCIQ…==", "publicKey": "-----BEGIN PUBLIC KEY-----\n…" }
+    "data": { "userId": 3, "role": "lakare", "patientId": 1, "action": "read", "signature": "t4kP…Dg==", "publicKey": "-----BEGIN PUBLIC KEY-----\n…" }
   }
 }
 ```
