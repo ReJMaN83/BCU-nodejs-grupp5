@@ -1,0 +1,244 @@
+.patient-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0a1929 0%, #0f2d4a 50%, #0a1929 100%);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  padding: 40px 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.patient-container {
+  width: 100%;
+  max-width: 720px;
+}
+
+.back-link {
+  color: #6688a8;
+  font-size: 13px;
+  text-decoration: none;
+  display: inline-block;
+  margin-bottom: 20px;
+}
+
+.back-link:hover {
+  color: #8ba3bd;
+}
+
+.patient-header {
+  background: #12233b;
+  border: 1px solid #1e3a5f;
+  border-radius: 12px;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.patient-name {
+  color: #f0f4f8;
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.patient-meta {
+  color: #6688a8;
+  font-size: 13px;
+  margin: 0;
+}
+
+.role-badge {
+  background: #1e3a5f;
+  color: #9fc3e8;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+
+.section {
+  background: #12233b;
+  border: 1px solid #1e3a5f;
+  border-radius: 12px;
+  padding: 24px 28px;
+  margin-bottom: 20px;
+}
+
+.section-title {
+  color: #f0f4f8;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+
+.notes-empty {
+  color: #6688a8;
+  font-size: 14px;
+}
+
+/* Notes */
+.note {
+  border-bottom: 1px solid #1e3a5f;
+  padding: 14px 0;
+}
+
+.note:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.note:first-child {
+  padding-top: 0;
+}
+
+.note-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.note-author {
+  color: #c5d5e5;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.note-time {
+  color: #4a6785;
+  font-size: 12px;
+}
+
+.note-text {
+  color: #d5e0ec;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0 0 8px;
+}
+
+.visibility-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.visibility-tag.private {
+  background: #3a1420;
+  color: #f5a3b5;
+}
+
+.visibility-tag.staff {
+  background: #2a3a1e;
+  color: #b8e08a;
+}
+
+.visibility-tag.everyone {
+  background: #1e2f4a;
+  color: #9fc3e8;
+}
+
+/* Add note form */
+.add-note-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.add-note-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: #0a1929;
+  border: 1px solid #274a6d;
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: #f0f4f8;
+  font-size: 14px;
+  font-family: inherit;
+  min-height: 80px;
+  resize: vertical;
+}
+
+.add-note-textarea::placeholder {
+  color: #4a6785;
+}
+
+.add-note-textarea:focus {
+  outline: none;
+  border-color: #3b82c4;
+}
+
+.add-note-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.visibility-select {
+  background: #0a1929;
+  border: 1px solid #274a6d;
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: #c5d5e5;
+  font-size: 13px;
+}
+
+.save-note-button {
+  background: #3b82c4;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.save-note-button:hover {
+  background: #4a94d9;
+}
+
+/* Access log */
+.log-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #1e3a5f;
+}
+
+.log-entry:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.log-entry:first-child {
+  padding-top: 0;
+}
+
+.log-who {
+  color: #c5d5e5;
+  font-size: 13px;
+}
+
+.log-who .log-role {
+  color: #6688a8;
+  font-weight: 400;
+}
+
+.log-time {
+  color: #4a6785;
+  font-size: 12px;
+}
+
+.not-found {
+  color: #8ba3bd;
+  text-align: center;
+  padding: 60px 0;
+}
