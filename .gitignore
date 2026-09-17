@@ -9,3 +9,9 @@ build/
 
 # .env.example ska checkas in
 !.env.example
+
+# Lokal SQLite-databas (skapas vid start)
+data/
+
+# Privat nyckellagring kopplad till databasfilen
+*.keys/

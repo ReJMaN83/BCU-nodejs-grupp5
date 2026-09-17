@@ -22,4 +22,5 @@ export const config = {
   nodeId: process.env.NODE_ID || `node-${port}`,
   peerUrl: process.env.PEER_URL || null,
   clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+  dbPath: process.env.DB_PATH || '../data/journal.db',
 };

@@ -3,7 +3,16 @@ import { createHash } from 'node:crypto';
 const dataFields = ['userId', 'role', 'patientId', 'action', 'signature', 'publicKey'];
 const roles = ['lakare', 'sjukskoterska', 'vardcentral', 'patient', 'obehorig'];
 
-function validateData(data) {
+export function validateAccessEventFields({ userId, role, patientId, action }) {
+  if (!Number.isSafeInteger(userId) || !Number.isSafeInteger(patientId)) {
+    throw new TypeError('userId and patientId must be integers');
+  }
+  if (!roles.includes(role) || !['read', 'write'].includes(action)) {
+    throw new TypeError('Invalid access-event role or action');
+  }
+}
+
+export function validateBlockData(data) {
   if (typeof data !== 'object' || data === null || Array.isArray(data)) {
     throw new TypeError('data must be an access-event object');
   }
@@ -21,13 +30,8 @@ function validateData(data) {
     throw new TypeError('data fields must be stored values');
   }
 
-  const { userId, role, patientId, action, signature, publicKey } = data;
-  if (!Number.isSafeInteger(userId) || !Number.isSafeInteger(patientId)) {
-    throw new TypeError('userId and patientId must be integers');
-  }
-  if (!roles.includes(role) || !['read', 'write'].includes(action)) {
-    throw new TypeError('Invalid access-event role or action');
-  }
+  validateAccessEventFields(data);
+  const { signature, publicKey } = data;
   if (typeof signature !== 'string' || signature.length % 4 !== 0
     || !/^[A-Za-z0-9+/]+={0,2}$/.test(signature)) {
     throw new TypeError('signature must be a base64 string');
@@ -38,6 +42,15 @@ function validateData(data) {
   }
 }
 
+export function validateTimestamp(timestamp) {
+  if (typeof timestamp !== 'string'
+    || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(timestamp)
+    || !Number.isFinite(Date.parse(timestamp))
+    || new Date(timestamp).toISOString().slice(0, 19) !== timestamp.slice(0, 19)) {
+    throw new TypeError('timestamp must be a valid ISO timestamp in UTC');
+  }
+}
+
 export function validateBlockFields({ index, timestamp, nodeId, prevHash, data }) {
   if (!Number.isSafeInteger(index) || index < 0) {
     throw new TypeError('index must be a non-negative integer');
@@ -45,18 +58,13 @@ export function validateBlockFields({ index, timestamp, nodeId, prevHash, data }
   if (typeof nodeId !== 'string' || typeof prevHash !== 'string' || !nodeId || !prevHash) {
     throw new TypeError('nodeId and prevHash must be non-empty strings');
   }
-  if (typeof timestamp !== 'string'
-    || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(timestamp)
-    || !Number.isFinite(Date.parse(timestamp))
-    || new Date(timestamp).toISOString().slice(0, 19) !== timestamp.slice(0, 19)) {
-    throw new TypeError('timestamp must be a valid ISO timestamp in UTC');
-  }
+  validateTimestamp(timestamp);
   if (index === 0) {
     if (prevHash !== '0' || data !== null) {
       throw new TypeError('Genesis requires prevHash "0" and data null');
     }
   } else {
-    validateData(data);
+    validateBlockData(data);
   }
 }
 
