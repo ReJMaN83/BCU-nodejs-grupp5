@@ -74,13 +74,53 @@ Backend ansvarar för inloggning och journalbehörighet. Använd samma uttryckli
 `timestamp` vid signering och blockskapande. Verifiering använder användarens
 registrerade publika nyckel och skapar inga nycklar. Detta är serverhanterad
 signering, inte en personlig webbläsarsignatur. `Blockchain.isValid()` kontrollerar
-fortfarande bara struktur och hashar. Backendkopplingen kommer i #13.
+fortfarande bara struktur och hashar.
+
+### Access-logg för backend
+
+Den namngivna exporten `chain` finns i `server/src/chain.js`. Från exempelvis
+`server/src/middleware/auditLogger.js` kan Daniel anropa:
+
+```js
+import { chain } from '../chain.js';
+
+const block = chain.addAccessLog({
+  userId: authenticatedUser.id,
+  role: authenticatedUser.role,
+  patientId,
+  action: 'read', // eller 'write'
+});
+```
+
+Eventet får innehålla endast `userId`, `role`, `patientId` och `action`.
+Anropet är synkront: modulen skapar en tidsstämpel, signerar och lägger till ett
+block med samma tidsstämpel. Det skapade blocket returneras; ogiltig befintlig
+kedja, felaktigt event, användar-/rollkonflikt eller signeringsfel kastar fel utan
+att lägga till block. Skicka inte vidare en hel request-body.
+
+Exporten återanvänder samma lokala `Blockchain`, tillgänglig som
+`chain.blockchain`, under processens livstid. Den använder `config.nodeId`,
+befintlig `db` och `${dbFile}.keys`. För separata instanser eller tester finns
+`createAccessLog(nodeId, db, keyDirectory)` i `server/src/access-log.js`;
+kärnmodulen öppnar ingen databas själv.
+
+Backend ansvarar för autentisering, journalbehörighet, verifierad `userId`/`role`,
+att `patientId` avser den faktiska journaloperationen och samordning med
+journal-/anteckningsskrivningen. Anropa utanför en pågående SQL-transaktion;
+annars kastas fel och anroparens transaktion lämnas öppen. Journaldata,
+nyckelfiler och kedjan ingår inte i en gemensam atomisk transaktion.
+
+Nycklarna lagras beständigt, men kedjan finns bara i minnet och börjar med ett
+nytt genesisblock vid omstart; kedjepersistens hör till #30. Koppling till
+auditLogger, SQL-indexering av access-loggar och P2P-sändning återstår. Backend
+kan senare skicka det returnerade blocket vidare till P2P-koden.
 
 ### Tester
 
-Kör `cd server && npm test`. Signeringstester använder temporära SQLite-filer och
-nyckelkataloger, inklusive två separata processer mot samma databas. De importerar
-inte `db.js` och öppnar inte den vanliga demodatabasen.
+Kör `cd server && npm test`. Signerings- och access-loggtester använder temporära
+SQLite-filer och nyckelkataloger, inklusive separata processer. Kärntesterna
+importerar inte `db.js`. Den verkliga `chain`-exporten testas i en separat process
+med tillfällig env-fil och databas. Den vanliga demodatabasen öppnas inte.
 
 ### Kontrollera att de lever
 
