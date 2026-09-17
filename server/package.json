@@ -5,6 +5,7 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
+    "test": "vitest run",
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "dev:3001": "node --watch src/index.js --env .env.3001",
@@ -14,5 +15,8 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.1"
   }
 }
