@@ -3,6 +3,7 @@ import cors from 'cors';
 import express from 'express';
 import { db } from './db.js';
 import { authRouter } from './routes/auth.js';
+import { patientsRouter } from './routes/patients.js';
 
 const countPatients = db.prepare('SELECT count(*) AS count FROM patients');
 
@@ -16,6 +17,7 @@ export function createApp(config) {
   app.use(cookieParser());
 
   app.use('/api/auth', authRouter);
+  app.use('/api/patients', patientsRouter);
 
   app.get('/api/health', (req, res) => {
     res.json({
