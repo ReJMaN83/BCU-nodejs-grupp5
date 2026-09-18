@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { accessLogFor, auditLogger } from '../audit-logger.js';
 import { db } from '../db.js';
 import { requireAuth, requireRole, STAFF_ROLES } from '../middleware.js';
 
@@ -64,8 +65,8 @@ patientsRouter.get('/', requireRole(...STAFF_ROLES), (req, res) => {
   res.json(searchPatients.all(search, search, search));
 });
 
-// TODO (#8/#25): varje träff här ska bli ett read-block i kedjan.
-patientsRouter.get('/:id', requirePatientAccess, (req, res) => {
+// Varje lyckad läsning blir ett signerat read-block i nodens egen kedja.
+patientsRouter.get('/:id', requirePatientAccess, auditLogger('read'), (req, res) => {
   const patient = selectPatient.get(req.patientId);
   if (!patient) return res.status(404).json({ message: 'Patienten finns inte' });
 
@@ -78,4 +79,13 @@ patientsRouter.get('/:id/notes', requirePatientAccess, (req, res) => {
   }
 
   res.json(notesFor(req.patientId, req.user));
+});
+
+// Skapar inga block (docs/kontrakt.md).
+patientsRouter.get('/:id/access-log', requirePatientAccess, (req, res) => {
+  if (!selectPatient.get(req.patientId)) {
+    return res.status(404).json({ message: 'Patienten finns inte' });
+  }
+
+  res.json(accessLogFor(req.patientId));
 });
