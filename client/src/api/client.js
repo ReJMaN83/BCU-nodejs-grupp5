@@ -1,5 +1,13 @@
 const BASE_URL = import.meta.env.VITE_API_URL;
 
+export class ApiError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 async function request(path, options = {}) {
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
@@ -10,15 +18,9 @@ async function request(path, options = {}) {
     },
   });
 
-  if (res.status === 401 || res.status === 403) {
-    // Not logged in or missing permission -> redirect to Access Denied
-    window.location.href = '/access-denied';
-    return;
-  }
-
   if (!res.ok) {
     const errorBody = await res.json().catch(() => ({}));
-    throw new Error(errorBody.message || `Request failed (${res.status})`);
+    throw new ApiError(res.status, errorBody.message || `Request failed (${res.status})`);
   }
 
   // Some endpoints (e.g. logout) may not return JSON
