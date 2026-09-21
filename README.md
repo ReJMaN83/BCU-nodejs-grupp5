@@ -115,6 +115,18 @@ nytt genesisblock vid omstart; kedjepersistens hör till #30. Koppling till
 auditLogger, SQL-indexering av access-loggar och P2P-sändning återstår. Backend
 kan senare skicka det returnerade blocket vidare till P2P-koden.
 
+### Accesslogg i kedjan
+
+Varje lyckad `GET /api/patients/:id` blir ett signerat block i nodens egen kedja
+(`NODE_ID`) och en rad i `access_logs`. Nekade anrop och okända patienter loggas inte.
+`GET /api/patients/:id/access-log` läser från kedjan och visar `verified` per post.
+
+**Utvecklingsläge:** nyckelparet för en användare skapas första gången hen läser en
+journal, och den publika nyckeln skrivs till `users.public_key`. Kedjan ligger i minnet
+och börjar om med ett nytt genesisblock vid omstart (kedjepersistens: #30).
+Broadcast till peer är inte kopplad än (#39), och accessloggen visar bara den egna
+nodens kedja tills chain-sync finns (#40).
+
 ### Tester
 
 Kör `cd server && npm test`. Signerings- och access-loggtester använder temporära
