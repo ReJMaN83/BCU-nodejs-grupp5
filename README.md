@@ -133,7 +133,6 @@ Kör `cd server && npm test`. Signerings- och access-loggtester använder tempor
 SQLite-filer och nyckelkataloger, inklusive separata processer. Kärntesterna
 importerar inte `db.js`. Den verkliga `chain`-exporten testas i en separat process
 med tillfällig env-fil och databas. Den vanliga demodatabasen öppnas inte.
-
 ### Kontrollera att de lever
 
 ```bash
