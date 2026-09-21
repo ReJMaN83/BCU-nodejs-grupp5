@@ -35,6 +35,24 @@ npm run dev:3001
 npm run dev:3002
 ```
 
+### P2P-hälsning (#22)
+
+Med två instanser igång enligt ovan ska båda terminalerna visa `peer:hello from`
+följt av den andra nodens id, adress och kedjelängd. `PEER_URL` anger den andra
+servern. Socket.IO ansluter automatiskt igen om den startar senare eller startas om.
+Eftersom båda noderna ansluter kan två hälsningar per nod visas; varje anslutning
+skickar en hälsning i vardera riktningen. Inkommande hälsningar utlöser inga svarsslingor.
+
+`NODE_URL` är valfri och anger nodens egen adress i hälsningen (standard
+`http://localhost:PORT`). Vid körning på olika datorer ska den sättas till den egna
+LAN-adressen och `PEER_URL` till den andra datorns adress. Hälsningen identifierar
+noden men autentiserar den inte. Blocköverföring och verifiering hör till #39.
+Ctrl+C stänger både inkommande och utgående Socket.IO-anslutningar.
+
+Windows: om `npm ci` försöker bygga better-sqlite3 och ger Python-fel har projektets
+låsta paket verifierats med `npm ci --ignore-scripts` i `server/`. Det använder den
+medföljande binären; kör sedan `npm test` för att kontrollera installationen.
+
 ### En server per dator
 
 ```bash
