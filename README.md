@@ -3,7 +3,7 @@
 ## Starta servrarna
 
 Servern ligger i `server/` (Express, ES modules). Varje instans läser `PORT`,
-`NODE_ID`, `PEER_URL`, `CLIENT_ORIGIN` och `DB_PATH` från en env-fil. Mallen är
+`NODE_ID`, `PEER_URL`, `CLIENT_ORIGIN`, `DB_PATH` och `JWT_SECRET` från en env-fil. Mallen är
 `server/.env.example`.
 
 ```bash
@@ -44,7 +44,7 @@ npm run dev
 
 ### Databasen
 
-`DB_PATH` (standard `../data/journal.db`, relativt `server/`) pekar ut SQLite-filen som båda instanserna delar. Finns inte tabellerna skapas de från `docs/database.sql` med seed-data när servern startar. Ta bort `data/journal.db*` för att börja om med en ny databas. Seed-användarna har lösenordet `demo1234`.
+`DB_PATH` (standard `../data/journal.db`, relativt `server/`) pekar ut SQLite-filen som båda instanserna delar. Finns inte tabellerna skapas de från `docs/database.sql` med seed-data när servern startar. Ta bort `data/journal.db*` för att börja om med en ny databas. Seed-användarna (`lakare1`, `sjukskoterska1`, `vardcentral1`, `patient1`, `obehorig1`) har lösenordet `demo1234`. `JWT_SECRET` måste vara samma på båda instanserna, annars godtas inte varandras cookies.
 
 ### Kontrollera att de lever
 
