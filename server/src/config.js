@@ -17,9 +17,18 @@ if (!Number.isInteger(port) || port <= 0) {
   process.exit(1);
 }
 
+// Utan JWT_SECRET går servern igång med ett utvecklingsvärde, men båda
+// instanserna måste ha samma hemlighet för att godta varandras cookies.
+const DEV_JWT_SECRET = 'dev-secret-byt-i-env';
+if (!process.env.JWT_SECRET) {
+  console.warn(`JWT_SECRET saknas i ${envFile}, använder utvecklingsvärdet.`);
+}
+
 export const config = {
   port,
   nodeId: process.env.NODE_ID || `node-${port}`,
   peerUrl: process.env.PEER_URL || null,
   clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+  dbPath: process.env.DB_PATH || '../data/journal.db',
+  jwtSecret: process.env.JWT_SECRET || DEV_JWT_SECRET,
 };

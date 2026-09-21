@@ -7,14 +7,17 @@
   "scripts": {
     "test": "vitest run",
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js",
-    "dev:3001": "node --watch src/index.js --env .env.3001",
-    "dev:3002": "node --watch src/index.js --env .env.3002"
+    "dev": "node --watch-path=src src/index.js",
+    "dev:3001": "node --watch-path=src src/index.js --env .env.3001",
+    "dev:3002": "node --watch-path=src src/index.js --env .env.3002"
   },
   "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3"
   },
   "devDependencies": {
     "vitest": "^5.0.1"
