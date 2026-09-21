@@ -5,6 +5,7 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
+    "test": "vitest run",
     "start": "node src/index.js",
     "dev": "node --watch-path=src src/index.js",
     "dev:3001": "node --watch-path=src src/index.js --env .env.3001",
@@ -17,5 +18,8 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.1"
   }
 }
