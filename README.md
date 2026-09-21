@@ -3,7 +3,7 @@
 ## Starta servrarna
 
 Servern ligger i `server/` (Express, ES modules). Varje instans läser `PORT`,
-`NODE_ID`, `PEER_URL` och `CLIENT_ORIGIN` från en env-fil. Mallen är
+`NODE_ID`, `PEER_URL`, `CLIENT_ORIGIN` och `DB_PATH` från en env-fil. Mallen är
 `server/.env.example`.
 
 ```bash
@@ -42,11 +42,15 @@ cp .env.example .env    # sätt PORT, NODE_ID och PEER_URL (den andra datorns IP
 npm run dev
 ```
 
+### Databasen
+
+`DB_PATH` (standard `../data/journal.db`, relativt `server/`) pekar ut SQLite-filen som båda instanserna delar. Finns inte tabellerna skapas de från `docs/database.sql` med seed-data när servern startar. Ta bort `data/journal.db*` för att börja om med en ny databas. Seed-användarna har lösenordet `demo1234`.
+
 ### Kontrollera att de lever
 
 ```bash
-curl http://localhost:3001/api/health   # {"ok":true,"port":3001,"nodeId":"node-3001"}
-curl http://localhost:3002/api/health   # {"ok":true,"port":3002,"nodeId":"node-3002"}
+curl http://localhost:3001/api/health   # {"ok":true,"port":3001,"nodeId":"node-3001","patients":5}
+curl http://localhost:3002/api/health   # {"ok":true,"port":3002,"nodeId":"node-3002","patients":5}
 ```
 
 Frontend ligger i `client/` (se #14).

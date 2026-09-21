@@ -1,5 +1,8 @@
 import cors from 'cors';
 import express from 'express';
+import { db } from './db.js';
+
+const countPatients = db.prepare('SELECT count(*) AS count FROM patients');
 
 export function createApp(config) {
   const app = express();
@@ -10,7 +13,12 @@ export function createApp(config) {
   app.use(express.json());
 
   app.get('/api/health', (req, res) => {
-    res.json({ ok: true, port: config.port, nodeId: config.nodeId });
+    res.json({
+      ok: true,
+      port: config.port,
+      nodeId: config.nodeId,
+      patients: countPatients.get().count,
+    });
   });
 
   return app;

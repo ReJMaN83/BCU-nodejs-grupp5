@@ -9,3 +9,6 @@ build/
 
 # .env.example ska checkas in
 !.env.example
+
+# Lokal SQLite-databas (skapas vid start)
+data/
