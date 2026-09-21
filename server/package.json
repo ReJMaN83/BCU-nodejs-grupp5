@@ -6,9 +6,9 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js",
-    "dev:3001": "node --watch src/index.js --env .env.3001",
-    "dev:3002": "node --watch src/index.js --env .env.3002"
+    "dev": "node --watch-path=src src/index.js",
+    "dev:3001": "node --watch-path=src src/index.js --env .env.3001",
+    "dev:3002": "node --watch-path=src src/index.js --env .env.3002"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
