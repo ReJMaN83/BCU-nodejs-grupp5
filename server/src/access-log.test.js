@@ -13,7 +13,7 @@ import { createAccessSigner } from './access-signing.js';
 
 const schema = readFileSync(new URL('../../docs/database.sql', import.meta.url), 'utf8');
 const exportFixture = fileURLToPath(new URL('../test/fixtures/chain-export.js', import.meta.url));
-const event = { userId: 1, role: 'lakare', patientId: 2, action: 'read' };
+const event = { userId: 1, role: 'doctor', patientId: 2, action: 'read' };
 let directory;
 let databaseFile;
 let keyDirectory;
@@ -98,7 +98,7 @@ describe('access log', () => {
 
   it.each([
     ['null event', null, /access-event object/],
-    ['missing field', { userId: 1, role: 'lakare', patientId: 2 }, /only userId/],
+    ['missing field', { userId: 1, role: 'doctor', patientId: 2 }, /only userId/],
     ['invalid action', { ...event, action: 'delete' }, /action/],
     ['invalid userId', { ...event, userId: '1' }, /userId/],
     ['journal field', { ...event, journalText: 'test-only journal content' }, /only userId/],
@@ -139,7 +139,7 @@ describe('access log', () => {
     const before = JSON.stringify(chain.blockchain.chain);
     statements.length = 0;
 
-    expect(() => chain.addAccessLog({ ...event, userId: 2, role: 'sjukskoterska' }))
+    expect(() => chain.addAccessLog({ ...event, userId: 2, role: 'nurse' }))
       .toThrow('Cannot append to an invalid chain');
     expect(statements).toEqual([]);
     expect(JSON.stringify(chain.blockchain.chain)).toBe(before);

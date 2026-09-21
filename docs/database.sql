@@ -37,7 +37,7 @@ CREATE TABLE users (
   password_hash     TEXT NOT NULL,
   display_name      TEXT NOT NULL,
   role              TEXT NOT NULL
-                    CHECK (role IN ('lakare', 'sjukskoterska', 'vardcentral', 'patient', 'obehorig')),
+                    CHECK (role IN ('doctor', 'nurse', 'clinic', 'patient', 'unauthorized')),
   linked_patient_id INTEGER REFERENCES patients (id) ON DELETE SET NULL,
   public_key        TEXT,
   created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
@@ -97,21 +97,21 @@ INSERT INTO patients (id, full_name, personal_id, created_at) VALUES
 -- password_hash har formatet scrypt$<salt hex>$<hash hex>
 -- (node:crypto scryptSync, 64 byte). Nyckelpar skapas i #12.
 INSERT INTO users (id, username, password_hash, display_name, role, linked_patient_id, created_at) VALUES
-  (1, 'lakare1',
+  (1, 'doctor1',
       'scrypt$16c5af7cfd134347b0ba621e5b744b62$7f8990c5f064b240be1363a29e695722dd951eb42c876cd49392ec2e31d11f11f70bab52db11744c211685907b55011416924f0bf27eadde8e3cae7c4c03bc34',
-      'Dr. Lindberg', 'lakare', NULL, '2026-09-01T08:00:00.000Z'),
-  (2, 'sjukskoterska1',
+      'Dr. Lindberg', 'doctor', NULL, '2026-09-01T08:00:00.000Z'),
+  (2, 'nurse1',
       'scrypt$4f1dac20d8c163a901c73ec16773adcc$f0bf9bc0ee4f9f388917b3d10ffac6692a3bd08e0ff0a6bbd3200a36ee2d06a1aa4be21454b422900b0ba47a633c511483f71baf319b3b3619dbd11673f24cbf',
-      'Nurse Åström', 'sjukskoterska', NULL, '2026-09-01T08:00:00.000Z'),
-  (3, 'vardcentral1',
+      'Nurse Åström', 'nurse', NULL, '2026-09-01T08:00:00.000Z'),
+  (3, 'clinic1',
       'scrypt$4cb26d3a88bb7676d19c2ad03b0d0bee$c49be4714f18795fd427b31c7f0d8ea0bb678df9488f6dd2b9bceacf411580267c9e4110f76cd5cdcf5608ffd53218f124050ba9bee50fb662ef85f40759034b',
-      'Vårdcentralen Centrum', 'vardcentral', NULL, '2026-09-01T08:00:00.000Z'),
+      'Vårdcentralen Centrum', 'clinic', NULL, '2026-09-01T08:00:00.000Z'),
   (4, 'patient1',
       'scrypt$b6dc2f5e20555e1e98dbc7330bbcf7e9$e74156bda18cb181cad91d1c2e01c1d0af810c6af58d195cecd85c21e9958c4221844d9af296b36a2e045b26198518c0589f1391f7a838d862f93f9246d4d1cb',
       'Anna Karlsson', 'patient', 1, '2026-09-01T08:00:00.000Z'),
-  (5, 'obehorig1',
+  (5, 'unauthorized1',
       'scrypt$fa04f481d48a4422ebf0979413739fb4$907455d30788d14fa72bb1a435bbed0ba78f00009a7b1eb3e6bed41557feff6a743e8da0ece609d952c681c569e0b7174c4ff65c34eb0f1b957aa9543f1d5a1b',
-      'Obehörig Testsson', 'obehorig', NULL, '2026-09-01T08:00:00.000Z');
+      'Obehörig Testsson', 'unauthorized', NULL, '2026-09-01T08:00:00.000Z');
 
 -- Mockdatans tider saknar tidszon och tolkas som svensk sommartid (UTC+2).
 INSERT INTO notes (id, patient_id, author_id, text, visibility, created_at) VALUES

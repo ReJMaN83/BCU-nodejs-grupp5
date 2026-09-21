@@ -44,7 +44,7 @@ npm run dev
 
 ### Databasen
 
-`DB_PATH` (standard `../data/journal.db`, relativt `server/`) pekar ut SQLite-filen som båda instanserna delar. Finns inte tabellerna skapas de från `docs/database.sql` med seed-data när servern startar. Ta bort `data/journal.db*` för att börja om med en ny databas. Seed-användarna (`lakare1`, `sjukskoterska1`, `vardcentral1`, `patient1`, `obehorig1`) har lösenordet `demo1234`. `JWT_SECRET` måste vara samma på båda instanserna, annars godtas inte varandras cookies. Använd ett nytt `DB_PATH` för en separat demo; databas och tillhörande nyckelkatalog ska bevaras tillsammans vid backup/återställning.
+`DB_PATH` (standard `../data/journal.db`, relativt `server/`) pekar ut SQLite-filen som båda instanserna delar. Finns inte tabellerna skapas de från `docs/database.sql` med seed-data när servern startar. Ta bort `data/journal.db*` för att börja om med en ny databas. Seed-användarna (`doctor1`, `nurse1`, `clinic1`, `patient1`, `unauthorized1`) har lösenordet `demo1234`. `JWT_SECRET` måste vara samma på båda instanserna, annars godtas inte varandras cookies. Använd ett nytt `DB_PATH` för en separat demo; databas och tillhörande nyckelkatalog ska bevaras tillsammans vid backup/återställning.
 
 ### Signerade access-event
 
