@@ -4,7 +4,7 @@ import { Block } from './block.js';
 // Encoding fixtures only: these are not a valid cryptographic signature/key pair.
 const data = {
   userId: 1,
-  role: 'lakare',
+  role: 'doctor',
   patientId: 2,
   action: 'read',
   signature: 'dGVzdA==',
@@ -18,7 +18,7 @@ const input = {
   data,
 };
 // Fixed vector checked independently from Block.calculateHash().
-const expectedHash = '5ea17a15a789deb6ec0d1b78b2e36a00d4019224fb117dd9a9802c663ed8ed66';
+const expectedHash = '43d27bbf75479d3e01cedbf2a6455708092bb638ddc670dcc0b1e26f0eb7eaca';
 
 describe('Block', () => {
   it('serializes exactly the contract fields and matches a fixed SHA-256 vector', () => {
@@ -127,7 +127,7 @@ describe('Block', () => {
   it.each([
     ['userId', { text: 'not allowed' }],
     ['patientId', '2'],
-    ['role', 'doctor'],
+    ['role', 'admin'],
     ['action', 'delete'],
     ['signature', { text: 'not allowed' }],
     ['signature', 'not base64'],

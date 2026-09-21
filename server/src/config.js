@@ -7,13 +7,13 @@ const envFile = envFlag !== -1 ? process.argv[envFlag + 1] : '.env';
 
 const result = dotenv.config({ path: envFile, quiet: true });
 if (result.error) {
-  console.error(`Kunde inte läsa ${envFile}. Kopiera .env.example, se README.`);
+  console.error(`Could not read ${envFile}. Copy .env.example, see README.`);
   process.exit(1);
 }
 
 const port = Number(process.env.PORT);
 if (!Number.isInteger(port) || port <= 0) {
-  console.error(`PORT saknas eller är ogiltig i ${envFile}`);
+  console.error(`PORT is missing or invalid in ${envFile}`);
   process.exit(1);
 }
 
@@ -21,7 +21,7 @@ if (!Number.isInteger(port) || port <= 0) {
 // instanserna måste ha samma hemlighet för att godta varandras cookies.
 const DEV_JWT_SECRET = 'dev-secret-byt-i-env';
 if (!process.env.JWT_SECRET) {
-  console.warn(`JWT_SECRET saknas i ${envFile}, använder utvecklingsvärdet.`);
+  console.warn(`JWT_SECRET is missing in ${envFile}, using the development value.`);
 }
 
 export const config = {

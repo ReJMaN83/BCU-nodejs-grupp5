@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
 const dataFields = ['userId', 'role', 'patientId', 'action', 'signature', 'publicKey'];
-const roles = ['lakare', 'sjukskoterska', 'vardcentral', 'patient', 'obehorig'];
+const roles = ['doctor', 'nurse', 'clinic', 'patient', 'unauthorized'];
 
 export function validateAccessEventFields({ userId, role, patientId, action }) {
   if (!Number.isSafeInteger(userId) || !Number.isSafeInteger(patientId)) {

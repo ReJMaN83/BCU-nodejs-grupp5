@@ -4,7 +4,7 @@ import { createAccessSigner } from '../../src/access-signing.js';
 
 try {
   const blockchain = chain.blockchain;
-  const event = { userId: 1, role: 'lakare', patientId: 2, action: 'read' };
+  const event = { userId: 1, role: 'doctor', patientId: 2, action: 'read' };
   const read = chain.addAccessLog(event);
   const { chain: repeatedImport } = await import('../../src/chain.js');
   const write = repeatedImport.addAccessLog({ ...event, action: 'write' });
