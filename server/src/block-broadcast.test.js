@@ -21,6 +21,7 @@ it('broadcasts real signed audit blocks between two servers without echoing', as
   try {
     const ports = [await freePort(), await freePort()];
     const logs = ['', ''];
+    const cookies = [];
     for (const [index, port] of ports.entries()) {
       const env = join(directory, `${index}.env`);
       writeFileSync(env, [
@@ -40,6 +41,19 @@ it('broadcasts real signed audit blocks between two servers without echoing', as
         const response = await fetch(`http://127.0.0.1:${port}/api/health`);
         expect(response.status).toBe(200);
       }, { timeout: 10000 });
+      const login = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'doctor1', password: 'demo1234' }),
+      });
+      expect(login.status).toBe(200);
+      cookies[index] = login.headers.get('set-cookie').split(';')[0];
+      if (index === 0) {
+        // Create history while node two is still offline; startup sync must recover it.
+        const initial = await fetch(`http://127.0.0.1:${port}/api/patients/1`, {
+          headers: { Cookie: cookies[index] },
+        });
+        expect(initial.status).toBe(200);
+      }
     }
     await vi.waitFor(() => {
       expect(logs[0]).toContain('peer:hello from node-1');
@@ -65,6 +79,17 @@ it('broadcasts real signed audit blocks between two servers without echoing', as
       expect(log).not.toContain('block:new from node-0: invalid');
       expect(log).not.toContain('block:new from node-1: invalid');
     }
+    await vi.waitFor(async () => {
+      for (const [index, port] of ports.entries()) {
+        const response = await fetch(`http://127.0.0.1:${port}/api/patients/1/access-log`, {
+          headers: { Cookie: cookies[index] },
+        });
+        expect(response.status).toBe(200);
+        const entries = await response.json();
+        expect(entries.map((entry) => entry.id).sort()).toEqual(['node-0-1', 'node-0-2', 'node-1-1']);
+        expect(entries.every((entry) => entry.verified)).toBe(true);
+      }
+    }, { timeout: 5000 });
   } finally {
     for (const { child } of children) child.kill();
     await Promise.all(children.map(({ closed }) => closed));

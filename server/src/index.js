@@ -5,7 +5,7 @@ import { chain } from './chain.js';
 import { createPeer } from './peer.js';
 import { createPeerChains } from './peer-chains.js';
 import { createAccessSigner } from './access-signing.js';
-import { setBlockBroadcaster } from './audit-logger.js';
+import { setBlockBroadcaster, setPeerChainReader } from './audit-logger.js';
 
 const app = createApp(config);
 
@@ -23,8 +23,11 @@ const peer = createPeer(server, {
   url: config.nodeUrl,
   getChainLength: () => chain.blockchain.chain.length,
   receiveBlock: peerChains.receive,
+  getChain: () => structuredClone(chain.blockchain.chain),
+  receiveChain: peerChains.receiveChain,
 });
 setBlockBroadcaster(peer.broadcastBlock);
+setPeerChainReader(peerChains.getChains);
 
 let shuttingDown = false;
 async function shutdown() {

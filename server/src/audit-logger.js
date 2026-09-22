@@ -1,4 +1,5 @@
 import { chain } from './chain.js';
+import { Blockchain } from './blockchain.js';
 import { createAccessSigner } from './access-signing.js';
 import { db, dbFile } from './db.js';
 
@@ -15,6 +16,12 @@ const insertAccessLog = db.prepare(`
 
 const selectUserName = db.prepare('SELECT display_name AS name FROM users WHERE id = ?');
 let broadcastBlock = () => {};
+let getPeerChains = () => [];
+
+export function setPeerChainReader(reader) {
+  if (typeof reader !== 'function') throw new TypeError('Chain reader must be a function');
+  getPeerChains = reader;
+}
 
 export function setBlockBroadcaster(broadcast) {
   if (typeof broadcast !== 'function') throw new TypeError('Broadcaster must be a function');
@@ -66,28 +73,22 @@ export function auditLogger(action) {
 }
 
 // Accessloggen byggs av kedjan, filtrerad på patient och sorterad nyaste först
-// (docs/kontrakt.md, beslut d). TODO (#40): slå ihop med peerns kedjor när
-// chain-sync finns. I dag visas bara den egna nodens kedja.
+// (docs/kontrakt.md, beslut d). Varje nods kedja förblir separat.
 export function accessLogFor(patientId) {
-  return chain.blockchain.chain
-    .filter((block) => block.data && block.data.patientId === patientId)
-    .map((block) => ({
-      id: `${block.nodeId}-${block.index}`,
-      userId: block.data.userId,
-      name: selectUserName.get(block.data.userId)?.name ?? null,
-      role: block.data.role,
-      action: block.data.action,
-      timestamp: block.timestamp,
-      nodeId: block.nodeId,
-      verified: isVerified(block),
-    }))
-    .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-}
-
-function isVerified(block) {
-  try {
-    return chain.blockchain.isValid() && signer.verifyAccessEvent(block.data, block.timestamp);
-  } catch {
-    return false;
-  }
+  const chains = [chain.blockchain.chain, ...getPeerChains()];
+  return chains.flatMap((blocks) => {
+    const chainValid = new Blockchain(blocks[0].nodeId).isValid(blocks);
+    return blocks
+      .filter((block) => block.data && block.data.patientId === patientId)
+      .map((block) => ({
+        id: `${block.nodeId}-${block.index}`,
+        userId: block.data.userId,
+        name: selectUserName.get(block.data.userId)?.name ?? null,
+        role: block.data.role,
+        action: block.data.action,
+        timestamp: block.timestamp,
+        nodeId: block.nodeId,
+        verified: chainValid && signer.verifyAccessEvent(block.data, block.timestamp),
+      }));
+  }).sort((a, b) => b.timestamp.localeCompare(a.timestamp) || a.id.localeCompare(b.id));
 }

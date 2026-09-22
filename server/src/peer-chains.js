@@ -4,6 +4,33 @@ import { Blockchain } from './blockchain.js';
 export function createPeerChains(localNodeId, verifyAccessEvent) {
   const replicas = new Map();
   return {
+    receiveChain(message, peerNodeId) {
+      try {
+        const { nodeId, chain } = message ?? {};
+        if (typeof nodeId !== 'string' || !nodeId.trim() || nodeId === localNodeId
+          || nodeId !== peerNodeId) return 'invalid';
+        const replica = new Blockchain(nodeId);
+        if (!replica.isValid(chain)
+          || !chain.slice(1).every((block) => verifyAccessEvent(block.data, block.timestamp))) {
+          return 'invalid';
+        }
+        const existing = replicas.get(nodeId)?.chain ?? [];
+        // A replica may only extend its owner's history, never replace a fork.
+        const shared = Math.min(existing.length, chain.length);
+        for (let index = 0; index < shared; index += 1) {
+          if (existing[index].hash !== chain[index].hash) return 'conflict';
+        }
+        if (chain.length <= existing.length) return 'unchanged';
+        replica.chain = structuredClone(chain);
+        replicas.set(nodeId, replica);
+        return 'accepted';
+      } catch {
+        return 'invalid';
+      }
+    },
+    getChains() {
+      return [...replicas.values()].map((replica) => structuredClone(replica.chain));
+    },
     receive(message, peerNodeId) {
       try {
         const { nodeId, block } = message ?? {};

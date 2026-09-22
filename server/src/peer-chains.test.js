@@ -63,3 +63,32 @@ it('rejects missing history and conflicting duplicates while preserving accepted
   expect(store.receive({ nodeId: 'node-a', block: next }, 'node-a')).toBe('accepted');
   expect(store.getChain('node-a')).toHaveLength(3);
 });
+
+it('syncs complete signed history and ignores stale responses without losing newer blocks', () => {
+  const { store, chain, block } = fixture();
+  const first = structuredClone(chain.chain);
+  chain.addBlock(block.data, block.timestamp);
+  expect(store.receiveChain({ nodeId: 'node-a', chain: chain.chain }, 'node-a')).toBe('accepted');
+  expect(store.receiveChain({ nodeId: 'node-a', chain: first }, 'node-a')).toBe('unchanged');
+  expect(store.getChain('node-a')).toHaveLength(3);
+  const snapshots = store.getChains();
+  snapshots[0].pop();
+  expect(store.getChain('node-a')).toHaveLength(3);
+});
+
+it('rejects conflicting, wrong-owner and invalidly signed chains atomically', () => {
+  const { store, chain, block } = fixture();
+  expect(store.receiveChain({ nodeId: 'node-a', chain: chain.chain }, 'node-a')).toBe('accepted');
+  const original = store.getChain('node-a');
+  expect(store.receiveChain({ nodeId: 'node-a', chain: chain.chain }, 'node-c')).toBe('invalid');
+  const other = new Blockchain('node-a');
+  const timestamp = '2026-09-22T10:00:01.000Z';
+  other.addBlock(block.data, timestamp);
+  expect(store.receiveChain({ nodeId: 'node-a', chain: other.chain }, 'node-a')).toBe('invalid');
+  const conflictingStore = createPeerChains('node-b', () => true);
+  conflictingStore.receiveChain({ nodeId: 'node-a', chain: chain.chain }, 'node-a');
+  expect(conflictingStore.receiveChain({ nodeId: 'node-a', chain: other.chain }, 'node-a')).toBe('conflict');
+  chain.addBlock(block.data, timestamp);
+  expect(store.receiveChain({ nodeId: 'node-a', chain: chain.chain }, 'node-a')).toBe('invalid');
+  expect(store.getChain('node-a')).toEqual(original);
+});
