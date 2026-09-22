@@ -16,16 +16,19 @@ export default function Login() {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
-
-    try {
-      await login({ username, password });
+ try {
+    const loggedInUser = await login({ username, password });
+    if (loggedInUser.role === 'patient') {
+      navigate('/journal');
+    } else {
       navigate('/patients');
-    } catch (err) {
-      setError(err.message || 'Login failed. Please check your credentials.');
-    } finally {
-      setIsSubmitting(false);
     }
-  };
+  } catch (err) {
+    setError(err.message || 'Login failed. Please check your credentials.');
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   return (
     <div className="login-page">
