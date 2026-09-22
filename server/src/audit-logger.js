@@ -52,7 +52,7 @@ export function auditLogger(action) {
         recordAccess({ user: req.user, patientId: req.patientId, action });
       } catch (err) {
         // Svaret är redan skickat. Logga tydligt i stället för att krascha.
-        console.error(`[audit] kunde inte logga ${action} för patient ${req.patientId}:`, err.message);
+        console.error(`[audit] could not log ${action} for patient ${req.patientId}:`, err.message);
       }
     });
 

@@ -8,7 +8,7 @@ const timestamp = '2026-09-18T09:15:02.123Z';
 // Encoding fixtures only; signature verification is outside this class.
 const event = {
   userId: 1,
-  role: 'lakare',
+  role: 'doctor',
   patientId: 2,
   action: 'read',
   signature: 'dGVzdA==',
@@ -223,7 +223,7 @@ describe('Blockchain', () => {
   it.each([
     ['userId', '1'],
     ['patientId', 1.5],
-    ['role', 'doctor'],
+    ['role', 'admin'],
     ['action', 'delete'],
     ['signature', null],
     ['publicKey', '-----BEGIN PRIVATE KEY-----\nYWJj\n-----END PRIVATE KEY-----\n'],

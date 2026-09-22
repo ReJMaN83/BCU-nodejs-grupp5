@@ -32,19 +32,19 @@ const selectNotes = db.prepare(`
   ORDER BY n.created_at DESC, n.id DESC
 `);
 
-// Allt under /api/patients kräver inloggning. Rollen obehorig får 403 överallt,
+// Allt under /api/patients kräver inloggning. Rollen unauthorized får 403 överallt,
 // och patient bara på sin egen journal (kontrollen i requirePatientAccess).
 patientsRouter.use(requireAuth, requireRole(...STAFF_ROLES, 'patient'));
 
 function requirePatientAccess(req, res, next) {
   const patientId = Number(req.params.id);
   if (!Number.isInteger(patientId)) {
-    return res.status(400).json({ message: 'Ogiltigt patient-id' });
+    return res.status(400).json({ message: 'Invalid patient id' });
   }
 
   const { role, linked_patient_id: linkedPatientId } = req.user;
   if (role === 'patient' && patientId !== linkedPatientId) {
-    return res.status(403).json({ message: 'Saknar behörighet' });
+    return res.status(403).json({ message: 'Forbidden' });
   }
 
   req.patientId = patientId;
@@ -68,14 +68,14 @@ patientsRouter.get('/', requireRole(...STAFF_ROLES), (req, res) => {
 // Varje lyckad läsning blir ett signerat read-block i nodens egen kedja.
 patientsRouter.get('/:id', requirePatientAccess, auditLogger('read'), (req, res) => {
   const patient = selectPatient.get(req.patientId);
-  if (!patient) return res.status(404).json({ message: 'Patienten finns inte' });
+  if (!patient) return res.status(404).json({ message: 'Patient not found' });
 
   res.json({ ...patient, notes: notesFor(req.patientId, req.user) });
 });
 
 patientsRouter.get('/:id/notes', requirePatientAccess, (req, res) => {
   if (!selectPatient.get(req.patientId)) {
-    return res.status(404).json({ message: 'Patienten finns inte' });
+    return res.status(404).json({ message: 'Patient not found' });
   }
 
   res.json(notesFor(req.patientId, req.user));
@@ -84,7 +84,7 @@ patientsRouter.get('/:id/notes', requirePatientAccess, (req, res) => {
 // Skapar inga block (docs/kontrakt.md).
 patientsRouter.get('/:id/access-log', requirePatientAccess, (req, res) => {
   if (!selectPatient.get(req.patientId)) {
-    return res.status(404).json({ message: 'Patienten finns inte' });
+    return res.status(404).json({ message: 'Patient not found' });
   }
 
   res.json(accessLogFor(req.patientId));

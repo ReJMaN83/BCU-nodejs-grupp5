@@ -15,8 +15,8 @@ import { Blockchain } from './blockchain.js';
 const schema = readFileSync(new URL('../../docs/database.sql', import.meta.url), 'utf8');
 const workerFile = fileURLToPath(new URL('../test/fixtures/access-signing-worker.js', import.meta.url));
 const timestamp = '2026-09-18T09:15:02.123Z';
-const event = { userId: 1, role: 'lakare', patientId: 2, action: 'read' };
-const otherEvent = { ...event, userId: 2, role: 'sjukskoterska' };
+const event = { userId: 1, role: 'doctor', patientId: 2, action: 'read' };
+const otherEvent = { ...event, userId: 2, role: 'nurse' };
 
 let directory;
 let databaseFile;
@@ -101,7 +101,7 @@ describe('access signing', () => {
     const block = blockchain.addBlock(data, timestamp);
     const parsed = JSON.parse(JSON.stringify(block));
     const expectedPayload = Buffer.from(
-      '{"userId":1,"role":"lakare","patientId":2,"action":"read","timestamp":"2026-09-18T09:15:02.123Z"}',
+      '{"userId":1,"role":"doctor","patientId":2,"action":"read","timestamp":"2026-09-18T09:15:02.123Z"}',
     );
 
     expect(verify(null, expectedPayload, registeredKey(), Buffer.from(data.signature, 'base64'))).toBe(true);
@@ -360,7 +360,7 @@ describe('access signing', () => {
 
   it('verifies historical role snapshots but checks the current role when signing', () => {
     const data = signer.signAccessEvent(event, timestamp);
-    db.prepare('UPDATE users SET role = ? WHERE id = 1').run('sjukskoterska');
+    db.prepare('UPDATE users SET role = ? WHERE id = 1').run('nurse');
 
     expect(signer.verifyAccessEvent(data, timestamp)).toBe(true);
     expect(() => signer.signAccessEvent(event, timestamp)).toThrow('role');

@@ -7,9 +7,9 @@ import { createPeer } from './peer.js';
 const app = createApp(config);
 
 const server = app.listen(config.port, () => {
-  console.log(`[${config.nodeId}] lyssnar på http://localhost:${config.port}`);
-  console.log(`[${config.nodeId}] peer: ${config.peerUrl ?? '(ingen)'}`);
-  console.log(`[${config.nodeId}] databas: ${dbFile}${schemaCreated ? ' (skapad med seed)' : ''}`);
+  console.log(`[${config.nodeId}] listening on http://localhost:${config.port}`);
+  console.log(`[${config.nodeId}] peer: ${config.peerUrl ?? '(none)'}`);
+  console.log(`[${config.nodeId}] database: ${dbFile}${schemaCreated ? ' (created with seed data)' : ''}`);
 });
 
 const peer = createPeer(server, {

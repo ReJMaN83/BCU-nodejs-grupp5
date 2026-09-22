@@ -41,8 +41,8 @@ function initSchema(db) {
     }
     if (existing.length > 0) {
       throw new Error(
-        `Databasen har bara en del av tabellerna (${existing.join(', ')}). ` +
-          'Ta bort filen så skapas den på nytt från docs/database.sql.',
+        `The database has only some of the tables (${existing.join(', ')}). ` +
+          'Delete the file and it will be recreated from docs/database.sql.',
       );
     }
 

@@ -22,22 +22,36 @@ c. **Journaltext aldrig i kedjan.** Anteckningarnas innehåll lagras i databasen
 d. **Accessloggen är alla kedjor sammanslagna.** Accessloggvyn byggs av alla kända
    noders kedjor, sammanslagna och sorterade på `timestamp`.
 
+## Språk i koden
+
+**Beslutat 2026-09-21.** All kod ska vara på engelska: identifierare, rollnamn,
+databasvärden, API-fält, env-namn, filnamn och commit-meddelanden. Det gäller även
+UI-texter och felmeddelanden.
+
+Svenska får finnas kvar i:
+
+- kodkommentarer som redan är svenska
+- `docs/moten/`
+- `gruppkontrakt.md`
+- löptexten i `docs/kontrakt.md` och `README.md`
+
 ## Roller
 
-**Beslutat 2026-09-16.** Samma rollnamn används överallt: databas, JWT, API-svar,
-block i kedjan och klienten. Inga engelska varianter (`doctor`, `nurse`).
+**Beslutat 2026-09-16, rollnamnen bytta till engelska 2026-09-21 (se "Språk i koden").**
+Samma rollnamn används överallt: databas, JWT, API-svar, block i kedjan och klienten.
+Inga svenska varianter (`lakare`, `sjukskoterska`).
 
 | Roll | Betydelse |
 |---|---|
-| `lakare` | Läkare |
-| `sjukskoterska` | Sjuksköterska |
-| `vardcentral` | Vårdcentralspersonal |
+| `doctor` | Läkare |
+| `nurse` | Sjuksköterska |
+| `clinic` | Vårdcentralspersonal |
 | `patient` | Patient, ser bara sin egen journal |
-| `obehorig` | Inloggad utan behörighet till journaler |
+| `unauthorized` | Inloggad utan behörighet till journaler |
 
-I avsnitten nedan betyder **personal** rollerna `lakare`, `sjukskoterska` och
-`vardcentral`. Detaljerna om vad varje roll får göra finns i `docs/behorighet.md` (#19).
-Om den och kontraktet säger olika saker gäller `behorighet.md`.
+I avsnitten nedan betyder **personal** rollerna `doctor`, `nurse` och
+`clinic`. Detaljerna om vad varje roll får göra finns i `docs/permissions.md` (#19).
+Om den och kontraktet säger olika saker gäller `permissions.md`.
 
 ## Block-format
 
@@ -52,7 +66,7 @@ Ett block i kedjan. Alla tider är ISO 8601 i UTC.
   "hash": "a71d0c…5f09",
   "data": {
     "userId": 1,
-    "role": "lakare",
+    "role": "doctor",
     "patientId": 1,
     "action": "read",
     "signature": "t4kP…Dg==",
@@ -136,10 +150,10 @@ Auth: ingen.
 
 ```json
 // request
-{ "username": "lakare1", "password": "demo1234" }
+{ "username": "doctor1", "password": "demo1234" }
 
 // 200, sätter cookie
-{ "id": 1, "role": "lakare", "displayName": "Dr. Lindberg", "linkedPatientId": null }
+{ "id": 1, "role": "doctor", "displayName": "Dr. Lindberg", "linkedPatientId": null }
 ```
 
 Fel: `400` om fält saknas, `401` vid fel användarnamn eller lösenord.
@@ -167,7 +181,7 @@ Auth: ingen (rensar cookien om den finns). Request-body behövs inte.
 
 #### `GET /api/patients?search=<text>`
 
-Auth: personal. `patient` och `obehorig` får `403`.
+Auth: personal. `patient` och `unauthorized` får `403`.
 
 Söker på namn och personnummer (delsträng, skiftlägesokänsligt). Utan `search`
 returneras alla patienter.
@@ -211,7 +225,7 @@ aldrig anteckningar den inte får se:
       "patientId": 1,
       "authorId": 1,
       "authorName": "Dr. Lindberg",
-      "authorRole": "lakare",
+      "authorRole": "doctor",
       "text": "Patient reports improved mobility after physical therapy. Follow-up in 3 weeks.",
       "visibility": "everyone",
       "createdAt": "2026-09-12T12:32:00.000Z"
@@ -241,7 +255,7 @@ Svaret är samma array, med samma filtrering och sortering, som `notes` i
     "patientId": 1,
     "authorId": 1,
     "authorName": "Dr. Lindberg",
-    "authorRole": "lakare",
+    "authorRole": "doctor",
     "text": "Patient reports improved mobility after physical therapy. Follow-up in 3 weeks.",
     "visibility": "everyone",
     "createdAt": "2026-09-12T12:32:00.000Z"
@@ -251,7 +265,7 @@ Svaret är samma array, med samma filtrering och sortering, som `notes` i
 
 #### `POST /api/patients/:id/notes`
 
-Auth: personal. `patient` och `obehorig` får `403`.
+Auth: personal. `patient` och `unauthorized` får `403`.
 
 Skapar ett `write`-block och skickar `note:created` (se Socket-events).
 
@@ -265,7 +279,7 @@ Skapar ett `write`-block och skickar `note:created` (se Socket-events).
   "patientId": 1,
   "authorId": 2,
   "authorName": "Nurse Åström",
-  "authorRole": "sjukskoterska",
+  "authorRole": "nurse",
   "text": "Blodtryck och vitalparametrar normala.",
   "visibility": "staff",
   "createdAt": "2026-09-18T09:20:00.000Z"
@@ -290,7 +304,7 @@ Byggs av alla kända noders kedjor, filtreras på `patientId` och sorteras på
     "id": "node-3001-42",
     "userId": 1,
     "name": "Dr. Lindberg",
-    "role": "lakare",
+    "role": "doctor",
     "action": "read",
     "timestamp": "2026-09-18T09:15:02.123Z",
     "nodeId": "node-3001",
@@ -338,7 +352,7 @@ av avsändarens kedja.
     "nodeId": "node-3001",
     "prevHash": "9f2c1a…e41b",
     "hash": "a71d0c…5f09",
-    "data": { "userId": 1, "role": "lakare", "patientId": 1, "action": "read", "signature": "t4kP…Dg==", "publicKey": "-----BEGIN PUBLIC KEY-----\n…" }
+    "data": { "userId": 1, "role": "doctor", "patientId": 1, "action": "read", "signature": "t4kP…Dg==", "publicKey": "-----BEGIN PUBLIC KEY-----\n…" }
   }
 }
 ```
@@ -378,7 +392,7 @@ skickar bara anteckningen till de klienter i rummet som får se den enligt `visi
     "patientId": 1,
     "authorId": 2,
     "authorName": "Nurse Åström",
-    "authorRole": "sjukskoterska",
+    "authorRole": "nurse",
     "text": "Blodtryck och vitalparametrar normala.",
     "visibility": "staff",
     "createdAt": "2026-09-18T09:20:00.000Z"
