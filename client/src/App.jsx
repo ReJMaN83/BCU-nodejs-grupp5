@@ -26,7 +26,7 @@ function AppRoutes() {
       <Route
         path="/patients"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['doctor', 'nurse', 'health_center']}>
             <PatientSearch />
           </ProtectedRoute>
         }
@@ -37,7 +37,7 @@ function AppRoutes() {
       <Route
         path="/patients/:id"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['doctor', 'nurse', 'health_center']}>
             <PatientView />
           </ProtectedRoute>
         }
