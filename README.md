@@ -44,7 +44,7 @@ npm run dev
 
 ### Databasen
 
-`DB_PATH` (standard `../data/journal.db`, relativt `server/`) pekar ut SQLite-filen som båda instanserna delar. Finns inte tabellerna skapas de från `docs/database.sql` med seed-data när servern startar. Ta bort `data/journal.db*` för att börja om med en ny databas. Seed-användarna (`doctor1`, `nurse1`, `clinic1`, `patient1`, `unauthorized1`) har lösenordet `demo1234`. `JWT_SECRET` måste vara samma på båda instanserna, annars godtas inte varandras cookies. Använd ett nytt `DB_PATH` för en separat demo; databas och tillhörande nyckelkatalog ska bevaras tillsammans vid backup/återställning.
+`DB_PATH` (standard `../data/journal.db`, relativt `server/`) pekar ut SQLite-filen som båda instanserna delar. Finns inte tabellerna skapas de från `docs/database.sql` med seed-data när servern startar. Seed-användarna (`doctor1`, `nurse1`, `clinic1`, `patient1`, `unauthorized1`) har lösenordet `demo1234`. `JWT_SECRET` måste vara samma på båda instanserna, annars godtas inte varandras cookies. Använd ett nytt `DB_PATH` för en separat demo. Stoppa servrarna och bevara databas, tillhörande nyckelkatalog (`<dbFile>.keys`) och kedjekatalog (`<dbFile>.chains`) tillsammans vid backup/återställning; behåll samma `NODE_ID`.
 
 ### Signerade access-event
 
@@ -101,8 +101,9 @@ att lägga till block. Skicka inte vidare en hel request-body.
 Exporten återanvänder samma lokala `Blockchain`, tillgänglig som
 `chain.blockchain`, under processens livstid. Den använder `config.nodeId`,
 befintlig `db` och `${dbFile}.keys`. För separata instanser eller tester finns
-`createAccessLog(nodeId, db, keyDirectory)` i `server/src/access-log.js`;
-kärnmodulen öppnar ingen databas själv.
+`createAccessLog(nodeId, db, keyDirectory, chainFile)` i `server/src/access-log.js`.
+Fjärde argumentet är en explicit filsökväg; utan det arbetar isolerade tester
+fortfarande bara i minnet. Kärnmodulen öppnar ingen databas själv.
 
 Backend ansvarar för autentisering, journalbehörighet, verifierad `userId`/`role`,
 att `patientId` avser den faktiska journaloperationen och samordning med
@@ -110,10 +111,49 @@ journal-/anteckningsskrivningen. Anropa utanför en pågående SQL-transaktion;
 annars kastas fel och anroparens transaktion lämnas öppen. Journaldata,
 nyckelfiler och kedjan ingår inte i en gemensam atomisk transaktion.
 
-Nycklarna lagras beständigt, men kedjan finns bara i minnet och börjar med ett
-nytt genesisblock vid omstart; kedjepersistens hör till #30. Koppling till
-auditLogger, SQL-indexering av access-loggar och P2P-sändning återstår. Backend
-kan senare skicka det returnerade blocket vidare till P2P-koden.
+Produktions-exporten återställer den egna kedjan vid start och sparar efter varje
+lokalt blocktillägg innan `addAccessLog` returnerar. Vid lagringsfel kastas fel och
+just det nya blocket tas bort ur minneskedjan. Signeringens eventuella
+nyckelregistrering rullas inte tillbaka. `auditLogger` kan därefter indexera det
+returnerade blocket i SQL; P2P-sändning kopplas in separat.
+
+### Lokal kedjepersistens (#30)
+
+Hela den lokala kedjan lagras som en JSON-array i
+`<dbFile>.chains/<sha256(NODE_ID)>.json`. `chainFilePath(dbFile, nodeId)` i
+`server/src/chain-storage.js` beräknar den absoluta sökvägen. SHA-256 av nodnamnet
+ger ett filnamn med fast längd utan sökvägsdelar. Två noder som delar databas har
+separata filer. För `NODE_ID=node-3001` är filnamnet:
+
+```text
+97985c055e5d64ff413f49a7018c711ad74849759efe965421b65c5e3953ad4f.json
+```
+
+Vid start läses JSON utan att blocken rekonstrueras. Hela kedjan kontrolleras med
+`verifyChain` mot konfigurerad nod och `users.public_key` innan den tilldelas
+`chain.blockchain.chain`. Fältordning, tidsstämpeltext och hashar bevaras.
+Historiska block kan återställas utan privata nyckelfiler; dessa behövs däremot
+för nya signerade block.
+
+Varje befintlig SQL-rad i `access_logs` för den lokala noden måste peka på samma
+blockindex och hash i kedjan. Korrupt JSON, ogiltig kedja, SQL-avvikelse eller
+saknad kedjefil trots lokal SQL-historik ger startfel. Filen repareras eller
+skrivs inte över. Saknas både fil och lokal SQL-historik börjar noden med genesis;
+filen skapas vid första lyckade blocktillägget. En kedja som ligger före SQL-indexet
+godtas, men saknade indexrader byggs inte upp automatiskt.
+
+Lagring skriver en komplett temporär fil i samma katalog, synkar filinnehållet
+och publicerar med atomisk `rename`. Nya kataloger/filer får rättigheterna
+`700`/`600` på Unix och `*.chains/` ignoreras av Git. Ett fel före publicering
+lämnar den tidigare filen kvar och rullar tillbaka det nya minnesblocket. Om
+processen avbryts efter publicering men före SQL-indexering kan kedjan ligga före
+SQL. Ett avbrott före publicering kan lämna en temporär fil som inte används vid
+återställning. Strömavbrottets påverkan på katalogmetadata garanteras inte.
+
+Kör bara en skrivande process per kombination av databas och `NODE_ID`. En fil
+som ändrats eller tagits bort sedan instansen läste/skrev den avvisas vid nästa
+skrivning, men detta är inget lås för samtidiga skrivare. Endast den egna lokala
+kedjan lagras; peer-repliker, synkronisering och återhämtning från peers ingår inte.
 
 ### Accesslogg i kedjan
 
@@ -122,8 +162,8 @@ Varje lyckad `GET /api/patients/:id` blir ett signerat block i nodens egen kedja
 `GET /api/patients/:id/access-log` läser från kedjan och visar `verified` per post.
 
 **Utvecklingsläge:** nyckelparet för en användare skapas första gången hen läser en
-journal, och den publika nyckeln skrivs till `users.public_key`. Kedjan ligger i minnet
-och börjar om med ett nytt genesisblock vid omstart (kedjepersistens: #30).
+journal, och den publika nyckeln skrivs till `users.public_key`. Den lokala kedjan
+sparas och verifieras vid återställning enligt avsnittet om kedjepersistens.
 Broadcast till peer är inte kopplad än (#39), och accessloggen visar bara den egna
 nodens kedja tills chain-sync finns (#40).
 
@@ -160,11 +200,10 @@ synkron och använder blockets ursprungliga tidsstämpel. Den ändrar inga block
 hashar eller nycklar. `Blockchain.isValid()` behåller sitt boolean-resultat för
 enbart struktur/hash, och `verifyAccessEvent` behåller sitt befintliga gränssnitt.
 
-Inför #30 behöver återläst JSON verifieras innan kedjan tas i bruk, med bevarad
-fältordning i `data`, tidsstämpeltext och betrodda publika användarnycklar. Hur
-lagring och återställning ska samordnas återstår för #30. En giltig kedja bevisar
-inte att alla slutblock finns kvar; upptäckt av avkortning kräver en separat betrodd
-referens till tidigare kedjeände. Ingen persistens eller Merkle-logik ingår här.
+En giltig kedja bevisar inte att alla slutblock finns kvar. Persistensens
+SQL-kontroll upptäcker avkortning om indexet fortfarande känner till senare
+block, men SQL är ingen kryptografiskt betrodd referens. Gemensam manipulation
+av kedja och index kan inte upptäckas generellt. Merkle-logik ingår inte.
 
 ### Reproducera manipuleringstestet (#31)
 
@@ -208,7 +247,9 @@ med ett test där hashar räknas om men den ursprungliga signaturen inte stämme
 Kör `cd server && npm test`. Signerings- och access-loggtester använder temporära
 SQLite-filer och nyckelkataloger, inklusive separata processer. Kärntesterna
 importerar inte `db.js`. Den verkliga `chain`-exporten testas i en separat process
-med tillfällig env-fil och databas. Den vanliga demodatabasen öppnas inte.
+med tillfällig env-fil och databas, inklusive återställning över två separata
+Node-processer. Persistenstesterna täcker även SQL-avvikelser, manipulerad lagring
+och rollback vid skrivfel. Den vanliga demodatabasen öppnas inte.
 ### Kontrollera att de lever
 
 ```bash
