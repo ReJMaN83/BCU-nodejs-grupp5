@@ -129,9 +129,8 @@ annars kastas fel och anroparens transaktion lämnas öppen. Journaldata,
 nyckelfiler och kedjan ingår inte i en gemensam atomisk transaktion.
 
 Nycklarna lagras beständigt, men kedjan finns bara i minnet och börjar med ett
-nytt genesisblock vid omstart; kedjepersistens hör till #30. Koppling till
-auditLogger, SQL-indexering av access-loggar och P2P-sändning återstår. Backend
-kan senare skicka det returnerade blocket vidare till P2P-koden.
+nytt genesisblock vid omstart; kedjepersistens hör till #30. auditLogger kopplar
+nu journalläsning till signering, SQL-indexering och P2P-sändning av det skapade blocket.
 
 ### Accesslogg i kedjan
 
@@ -142,8 +141,35 @@ Varje lyckad `GET /api/patients/:id` blir ett signerat block i nodens egen kedja
 **Utvecklingsläge:** nyckelparet för en användare skapas första gången hen läser en
 journal, och den publika nyckeln skrivs till `users.public_key`. Kedjan ligger i minnet
 och börjar om med ett nytt genesisblock vid omstart (kedjepersistens: #30).
-Broadcast till peer är inte kopplad än (#39), och accessloggen visar bara den egna
+Broadcast till peer skickar nu signerade block med `block:new` (#39). Accessloggen visar bara den egna
 nodens kedja tills chain-sync finns (#40).
+
+### Block broadcast (#39)
+
+After both nodes exchange `peer:hello`, a successful patient-record read sends
+the newly signed audit block to the peer. The receiving terminal reports
+`block:new from <nodeId>: accepted`. Each receiver keeps a separate in-memory
+replica of the sender's chain. It verifies the block structure, index, previous
+hash, calculated hash and signature against the user's registered database key
+before storing a copy. Incoming blocks are not rebroadcast or appended to the
+receiver's own chain. Reciprocal connections send once per peer; duplicate
+delivery does not append twice.
+
+Start both nodes with fresh in-memory chains before testing. A missing predecessor
+is reported as `missing-history` and rejected without changing stored data.
+Offline delivery, startup synchronization, persistence and combined access-log
+views are separate follow-up work (#30 and #40). Received copies are not written
+to the shared SQL index again; the originating audit operation already writes it.
+Peer identity still comes from the unauthenticated hello introduced in #22;
+this is a trusted demo-network transport, not authenticated node identity.
+Cryptographic access-event verification does not authenticate the sending node.
+
+Use a separate `DB_PATH` and matching JWT settings for a fresh demo if your old
+database still has Swedish roles; preserve the old database and key directory.
+Both demo nodes must share the new database. Log in as `doctor1`, then request
+`GET /api/patients/1` with its cookie. Confirm `accepted` on the other node, then
+repeat in the opposite direction. `npm test` includes this full flow with two
+server processes and a temporary database, plus tampering and duplicate tests.
 
 ### Tester
 
