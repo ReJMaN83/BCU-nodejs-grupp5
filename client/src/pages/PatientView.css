@@ -180,6 +180,15 @@
   gap: 10px;
 }
 
+.add-note-error {
+  background: #3a1420;
+  border: 1px solid #7a2a3d;
+  color: #f5a3b5;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
 .visibility-select {
   background: #0a1929;
   border: 1px solid #274a6d;

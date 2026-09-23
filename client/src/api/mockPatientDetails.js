@@ -10,7 +10,9 @@ export const mockPatientDetails = {
     personalId: '19850312-4521',
     notes: [
       {
-        id: 'n1',
+        id: 11,
+        patientId: 1,
+        authorId: 1,
         authorName: 'Dr. Lindberg',
         authorRole: 'doctor',
         text: 'Patient reports improved mobility after physical therapy. Follow-up in 3 weeks.',
@@ -18,7 +20,9 @@ export const mockPatientDetails = {
         createdAt: '2026-09-12T14:32:00',
       },
       {
-        id: 'n2',
+        id: 12,
+        patientId: 2,
+        authorId: 2,
         authorName: 'Dr. Lindberg',
         authorRole: 'doctor',
         text: 'Internal note: consider referral to specialist if no improvement by next visit.',
@@ -26,7 +30,9 @@ export const mockPatientDetails = {
         createdAt: '2026-09-10T09:15:00',
       },
       {
-        id: 'n3',
+        id: 13,
+        patientId: 3,
+        authorId: 3,
         authorName: 'Nurse Åström',
         authorRole: 'nurse',
         text: 'Blood pressure and vitals recorded, all within normal range.',
