@@ -135,6 +135,11 @@ Vid start läses JSON utan att blocken rekonstrueras. Hela kedjan kontrolleras m
 Historiska block kan återställas utan privata nyckelfiler; dessa behövs däremot
 för nya signerade block.
 
+Före varje beständigt tillägg verifieras även minneskedjans signaturer, och hela
+dess befintliga historik måste motsvara senast lästa/sparade JSON-kedja. Ändrad
+eller avkortad minneshistorik ger fel före signering och blocktillägg. Filen och
+SQL-indexet lämnas kvar; minneshistoriken repareras inte automatiskt.
+
 Varje befintlig SQL-rad i `access_logs` för den lokala noden måste peka på samma
 blockindex och hash i kedjan. Korrupt JSON, ogiltig kedja, SQL-avvikelse eller
 saknad kedjefil trots lokal SQL-historik ger startfel. Filen repareras eller
@@ -249,7 +254,8 @@ SQLite-filer och nyckelkataloger, inklusive separata processer. Kärntesterna
 importerar inte `db.js`. Den verkliga `chain`-exporten testas i en separat process
 med tillfällig env-fil och databas, inklusive återställning över två separata
 Node-processer. Persistenstesterna täcker även SQL-avvikelser, manipulerad lagring
-och rollback vid skrivfel. Den vanliga demodatabasen öppnas inte.
+och rollback vid skrivfel, samt ändrad/avkortad minneshistorik före tillägg.
+Den vanliga demodatabasen öppnas inte.
 ### Kontrollera att de lever
 
 ```bash

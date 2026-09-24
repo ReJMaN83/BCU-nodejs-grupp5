@@ -36,8 +36,15 @@ export function createAccessLog(nodeId, db, keyDirectory, chainFile) {
   }
 
   function addAccessLog(event) {
-    if (!blockchain.isValid()) {
+    const valid = chainFile === undefined
+      ? blockchain.isValid()
+      : verifyChain(blockchain.chain, nodeId, signing.verifyAccessEvent).valid;
+    if (!valid) {
       throw new Error('Cannot append to an invalid chain');
+    }
+    if (storedJson !== null
+      && JSON.stringify(blockchain.chain) !== JSON.stringify(JSON.parse(storedJson))) {
+      throw new Error('Cannot append: in-memory chain differs from persisted history');
     }
     const timestamp = new Date(Date.now()).toISOString();
     const data = signing.signAccessEvent(event, timestamp);

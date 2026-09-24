@@ -248,6 +248,41 @@ describe('local chain persistence', () => {
     expect(db.prepare('SELECT block_index FROM access_logs').all()).toEqual([{ block_index: 1 }]);
   });
 
+  it.each(['altered', 'shortened'])('refuses an append after persisted history is %s in memory', (kind) => {
+    const chain = twoBlocks();
+    chain.blockchain.chain.slice(1).forEach(indexBlock);
+    const saved = readFileSync(chainFile, 'utf8');
+    const rows = db.prepare('SELECT * FROM access_logs ORDER BY id').all();
+    const blocks = chain.blockchain.chain;
+    if (kind === 'altered') {
+      blocks[1].data.patientId = 99;
+      for (let index = 1; index < blocks.length; index += 1) {
+        blocks[index].prevHash = blocks[index - 1].hash;
+        blocks[index].hash = calculateBlockHash(blocks[index]);
+      }
+    } else {
+      blocks.pop();
+    }
+    const before = JSON.stringify(blocks);
+    expect(chain.blockchain.isValid()).toBe(true);
+    expect(chain.verifyChain().valid).toBe(kind === 'shortened');
+
+    expect(() => indexBlock(chain.addAccessLog(event))).toThrow(/Cannot append/);
+
+    expect(chain.blockchain.chain).toBe(blocks);
+    expect(JSON.stringify(blocks)).toBe(before);
+    expect(readFileSync(chainFile, 'utf8')).toBe(saved);
+    expect(db.prepare('SELECT * FROM access_logs ORDER BY id').all()).toEqual(rows);
+    const restored = openChain();
+    expect(restored.verifyChain().valid).toBe(true);
+    const next = restored.addAccessLog(event);
+    expect(next.index).toBe(3);
+    expect(next.prevHash).toBe(JSON.parse(saved)[2].hash);
+    indexBlock(next);
+    expect(openChain().verifyChain().valid).toBe(true);
+    expect(db.prepare('SELECT count(*) AS count FROM access_logs').get().count).toBe(3);
+  });
+
   it.each(['partial write', 'fsync', 'rename'])('rolls back only the new block after a failed %s', (failure) => {
     const chain = twoBlocks();
     const originalArray = chain.blockchain.chain;
