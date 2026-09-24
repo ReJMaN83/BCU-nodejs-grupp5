@@ -1,0 +1,83 @@
+.access-denied-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0a1929 0%, #0f2d4a 50%, #0a1929 100%);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  padding: 24px;
+}
+
+.access-denied-card {
+  background: #12233b;
+  border: 1px solid #3a1420;
+  border-radius: 16px;
+  padding: 48px 40px;
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.access-denied-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 20px;
+  border-radius: 12px;
+  background: #3a1420;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.access-denied-icon-bar {
+  width: 4px;
+  height: 20px;
+  background: #f5a3b5;
+  border-radius: 2px;
+}
+
+.access-denied-title {
+  color: #f0f4f8;
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+
+.access-denied-text {
+  color: #8ba3bd;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 28px;
+}
+
+.access-denied-button {
+  background: #3b82c4;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.access-denied-button:hover {
+  background: #4a94d9;
+}
+
+.access-denied-secondary {
+  display: block;
+  margin-top: 16px;
+  color: #6688a8;
+  font-size: 13px;
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.access-denied-secondary:hover {
+  color: #8ba3bd;
+}
