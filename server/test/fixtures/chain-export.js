@@ -18,6 +18,7 @@ try {
     dbFile,
     indexes: blockchain.chain.map((block) => block.index),
     validChain: blockchain.isValid(),
+    chainVerification: chain.verifyChain(),
     validSignatures: [read, write].map((block) => signing.verifyAccessEvent(block.data, block.timestamp)),
   }));
 } finally {
