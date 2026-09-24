@@ -195,6 +195,12 @@ scenarios and the distinction between a transport outage and a process restart.
 
 ### Tester
 
+Live-note server integration for #41 is described in
+[docs/live-notes-integration.md](docs/live-notes-integration.md). Both peers use
+the `/peers` namespace; browsers use `/`. Set a shared server-only `PEER_SECRET`
+to enable note forwarding. The note POST endpoint and frontend integration are
+still required before the complete live-note scenario can be accepted.
+
 Kör `cd server && npm test`. Signerings- och access-loggtester använder temporära
 SQLite-filer och nyckelkataloger, inklusive separata processer. Kärntesterna
 importerar inte `db.js`. Den verkliga `chain`-exporten testas i en separat process
