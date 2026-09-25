@@ -32,6 +32,22 @@ const selectNotes = db.prepare(`
   ORDER BY n.created_at DESC, n.id DESC
 `);
 
+const selectNote = db.prepare(`
+  SELECT n.id, n.patient_id AS patientId, n.author_id AS authorId,
+         u.display_name AS authorName, u.role AS authorRole,
+         n.text, n.visibility, n.created_at AS createdAt
+  FROM notes n
+  JOIN users u ON u.id = n.author_id
+  WHERE n.id = ?
+`);
+
+const insertNote = db.prepare(`
+  INSERT INTO notes (patient_id, author_id, text, visibility)
+  VALUES (@patientId, @authorId, @text, @visibility)
+`);
+
+const VISIBILITIES = ['private', 'staff', 'everyone'];
+
 // Allt under /api/patients kräver inloggning. Rollen unauthorized får 403 överallt,
 // och patient bara på sin egen journal (kontrollen i requirePatientAccess).
 patientsRouter.use(requireAuth, requireRole(...STAFF_ROLES, 'patient'));
@@ -80,6 +96,43 @@ patientsRouter.get('/:id/notes', requirePatientAccess, (req, res) => {
 
   res.json(notesFor(req.patientId, req.user));
 });
+
+// Bara personal skriver anteckningar. Ett lyckat anrop blir ett signerat
+// write-block i nodens egen kedja; själva texten hamnar aldrig i kedjan (beslut c).
+patientsRouter.post(
+  '/:id/notes',
+  requireRole(...STAFF_ROLES),
+  requirePatientAccess,
+  auditLogger('write'),
+  (req, res) => {
+    if (!selectPatient.get(req.patientId)) {
+      return res.status(404).json({ message: 'Patient not found' });
+    }
+
+    const { text, visibility } = req.body ?? {};
+    if (typeof text !== 'string' || text.trim() === '') {
+      return res.status(400).json({ message: 'text is required' });
+    }
+    if (!VISIBILITIES.includes(visibility)) {
+      return res.status(400).json({ message: 'visibility must be private, staff or everyone' });
+    }
+
+    const { lastInsertRowid } = insertNote.run({
+      patientId: req.patientId,
+      authorId: req.user.id,
+      text: text.trim(),
+      visibility,
+    });
+    const note = selectNote.get(lastInsertRowid);
+
+    // TODO (#41): skicka note:created med anteckningen till rummet
+    // patient:<id>. socket.io finns inte på main än; Aamods PR #89 (broadcast)
+    // och #97 (rum + publishCreatedNote i notes-live.js) lägger till det.
+    // Inget emitteras härifrån förrän de är mergade.
+
+    return res.status(201).json(note);
+  },
+);
 
 // Skapar inga block (docs/kontrakt.md).
 patientsRouter.get('/:id/access-log', requirePatientAccess, (req, res) => {

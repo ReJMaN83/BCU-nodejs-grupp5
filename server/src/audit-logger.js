@@ -41,12 +41,12 @@ export function recordAccess({ user, patientId, action }) {
 }
 
 // Middleware som loggar en lyckad journalåtkomst. Loggen skrivs först när
-// svaret gått iväg med 200, så nekade anrop (401/403) och okända patienter
-// (404) inte hamnar i kedjan.
+// svaret gått iväg med 2xx (200 för read, 201 för write), så nekade anrop
+// (401/403), felaktiga (400) och okända patienter (404) inte hamnar i kedjan.
 export function auditLogger(action) {
   return (req, res, next) => {
     res.on('finish', () => {
-      if (res.statusCode !== 200) return;
+      if (res.statusCode < 200 || res.statusCode >= 300) return;
 
       try {
         recordAccess({ user: req.user, patientId: req.patientId, action });
