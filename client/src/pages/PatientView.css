@@ -251,3 +251,20 @@
   text-align: center;
   padding: 60px 0;
 }
+
+.log-action {
+  color: #6688a8;
+  text-transform: capitalize;
+}
+
+.log-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.verified-badge {
+  color: #7fd88f;
+  font-size: 13px;
+  font-weight: 600;
+}
