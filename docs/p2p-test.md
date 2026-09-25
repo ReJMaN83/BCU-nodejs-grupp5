@@ -2,7 +2,7 @@
 
 ## Scope
 
-Verification for #40, providing a basis for the broader scenario in #42.
+Verification for #40 and #42, integrating #90 with persistence from #92 (including #91).
 Each node owns one chain and stores read-only copies of directly connected
 peers' chains. There is no shared writable chain and no longest-chain selection.
 
@@ -22,15 +22,15 @@ ephemeral local ports and generated test keys. They do not open the demo databas
 | Invalid signature, wrong owner or conflicting history | Complete response is rejected without modifying the previously accepted replica |
 | Read-only copies | Mutating a returned snapshot does not modify stored replicas |
 
-Observed on 2026-09-22: 202 tests passed, one skipped across eight test files.
-The skipped test is from the existing suite. These are automated results, not
+Observed on Windows / Node 24.21.0 on 2026-09-24: 306 tests passed, two skipped across eleven test files.
+The skipped tests are platform-specific checks from the existing suite. These are automated results, not
 a claim of a completed manual two-computer demo.
 
 ## Manual demo using a fresh disposable database
 
 1. Preserve any existing database and key directory. Set both demo env files to
-   the same new `DB_PATH`, matching `JWT_SECRET`, distinct `NODE_ID`/`PORT`, and
-   each other's `PEER_URL`.
+   the same new `DB_PATH`, matching `JWT_SECRET`, the same `PEER_SECRET`, distinct
+   `NODE_ID`/`PORT`, and each other's `PEER_URL`.
 2. Start node A only. Log in using `doctor1` / `demo1234` and read patient 1 via
    `GET /api/patients/1` with the returned cookie. This creates A's first block.
 3. Start node B. Confirm `chain:response from <A>: accepted` in B's terminal.
@@ -40,14 +40,20 @@ a claim of a completed manual two-computer demo.
    the IDs: both should contain all reads, each once. Reading the access-log
    endpoint itself does not create a new block.
 
-## Remaining boundary for #42 and persistence
+## Full process restart verification (#42)
 
-The transport-outage test keeps the owner's chain in memory. It is not a test
-of recovering an owner's own chain after killing its process. Local-chain
-persistence is #30. Restarting an owner currently resets its local chain and
-can reuse indices already present in the shared SQL index. Sync preserves a
-peer's longer replica but does not restore or overwrite the owner's own chain.
-Do not close #42 on the assumption that process-restart recovery is implemented.
+`p2p-restart.test.js` runs the real production entry point against one temporary
+SQLite database and separate persisted node chains. It performs simultaneous
+HTTP reads on both nodes, kills node B, logs another read on A, restarts B and
+checks both APIs contain all three verified entries. B's saved chain remains
+identical. A new read on B continues at index 2 with the prior block hash.
+The test then kills A, logs on B, restarts A and checks both APIs contain the
+same five unique verified entries. Both directions preserve history.
+
+This branch depends on unmerged #90 and #92 (which depends on #91). It does not
+change Mats' persistence implementation; only README integration conflicts were
+resolved. The result is a localhost backend/P2P test, not a two-computer or
+frontend live-note demonstration. Keep the dependency PRs ahead of this PR.
 
 Peer hello identity is not authenticated (#22). Signature validation checks
 against registered user keys, but does not prove the sending node's identity.
