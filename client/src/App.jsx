@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import PatientSearch from './pages/PatientSearch';
 import PatientView from './pages/PatientView';
 import AccessDenied from './pages/AccessDenied';
+import Journal from './pages/Journal';
 
 function ProtectedRoute({ children, roles }) {
   const { user, loading } = useAuth();
@@ -25,7 +26,7 @@ function AppRoutes() {
       <Route
         path="/patients"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['doctor', 'nurse', 'clinic']}>
             <PatientSearch />
           </ProtectedRoute>
         }
@@ -36,8 +37,16 @@ function AppRoutes() {
       <Route
         path="/patients/:id"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['doctor', 'nurse', 'clinic']}>
             <PatientView />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/journal"
+        element={
+          <ProtectedRoute roles={['patient']}>
+            <Journal />
           </ProtectedRoute>
         }
       />

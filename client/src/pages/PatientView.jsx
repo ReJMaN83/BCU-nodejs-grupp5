@@ -14,7 +14,7 @@ const VISIBILITY_LABELS = {
 const ROLE_LABELS = {
   doctor: 'Doctor',
   nurse: 'Nurse',
-  health_center: 'Health center',
+  clinic: 'Health center',
   patient: 'Patient',
   unauthorized: 'Unauthorized',
 };
@@ -37,12 +37,12 @@ function formatTimestamp(isoString) {
 function isNoteVisible(note, role) {
   if (note.visibility === 'everyone') return true;
   if (note.visibility === 'staff') {
-    return ['doctor', 'nurse', 'health_center'].includes(role);
+    return ['doctor', 'nurse', 'clinic'].includes(role);
   }
   if (note.visibility === 'private') {
     // In the real implementation this should also check that the
     // current user is the note's author, not just their role.
-    return ['doctor', 'nurse', 'health_center'].includes(role);
+    return ['doctor', 'nurse', 'clinic'].includes(role);
   }
   return false;
 }
