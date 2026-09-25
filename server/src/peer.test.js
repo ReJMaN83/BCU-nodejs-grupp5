@@ -40,7 +40,7 @@ it('exchanges hello in both directions and reconnects with current chain length'
 
 it('rejects malformed and self hellos without losing the connection', async () => {
   const node = await start('node-a');
-  const client = io(node.url, { autoConnect: false });
+  const client = io(`${node.url}/peers`, { autoConnect: false });
   clients.push(client);
   const greeting = new Promise((resolve) => client.once('peer:hello', resolve));
   client.connect();
