@@ -35,6 +35,24 @@ npm run dev:3001
 npm run dev:3002
 ```
 
+### P2P-hälsning (#22)
+
+Med två instanser igång enligt ovan ska båda terminalerna visa `peer:hello from`
+följt av den andra nodens id, adress och kedjelängd. `PEER_URL` anger den andra
+servern. Socket.IO ansluter automatiskt igen om den startar senare eller startas om.
+Eftersom båda noderna ansluter kan två hälsningar per nod visas; varje anslutning
+skickar en hälsning i vardera riktningen. Inkommande hälsningar utlöser inga svarsslingor.
+
+`NODE_URL` är valfri och anger nodens egen adress i hälsningen (standard
+`http://localhost:PORT`). Vid körning på olika datorer ska den sättas till den egna
+LAN-adressen och `PEER_URL` till den andra datorns adress. Hälsningen identifierar
+noden men autentiserar den inte. Blocköverföring och verifiering hör till #39.
+Ctrl+C stänger både inkommande och utgående Socket.IO-anslutningar.
+
+Windows: om `npm ci` försöker bygga better-sqlite3 och ger Python-fel har projektets
+låsta paket verifierats med `npm ci --ignore-scripts` i `server/`. Det använder den
+medföljande binären; kör sedan `npm test` för att kontrollera installationen.
+
 ### En server per dator
 
 ```bash
@@ -111,9 +129,8 @@ annars kastas fel och anroparens transaktion lämnas öppen. Journaldata,
 nyckelfiler och kedjan ingår inte i en gemensam atomisk transaktion.
 
 Nycklarna lagras beständigt, men kedjan finns bara i minnet och börjar med ett
-nytt genesisblock vid omstart; kedjepersistens hör till #30. Koppling till
-auditLogger, SQL-indexering av access-loggar och P2P-sändning återstår. Backend
-kan senare skicka det returnerade blocket vidare till P2P-koden.
+nytt genesisblock vid omstart; kedjepersistens hör till #30. auditLogger kopplar
+nu journalläsning till signering, SQL-indexering och P2P-sändning av det skapade blocket.
 
 ### Accesslogg i kedjan
 
@@ -124,10 +141,65 @@ Varje lyckad `GET /api/patients/:id` blir ett signerat block i nodens egen kedja
 **Utvecklingsläge:** nyckelparet för en användare skapas första gången hen läser en
 journal, och den publika nyckeln skrivs till `users.public_key`. Kedjan ligger i minnet
 och börjar om med ett nytt genesisblock vid omstart (kedjepersistens: #30).
-Broadcast till peer är inte kopplad än (#39), och accessloggen visar bara den egna
-nodens kedja tills chain-sync finns (#40).
+Broadcast till peer skickar signerade block med `block:new` (#39). Accessloggen
+visar nu både den egna kedjan och verifierade kopior av anslutna peers kedjor (#40).
+
+### Block broadcast (#39)
+
+After both nodes exchange `peer:hello`, a successful patient-record read sends
+the newly signed audit block to the peer. The receiving terminal reports
+`block:new from <nodeId>: accepted`. Each receiver keeps a separate in-memory
+replica of the sender's chain. It verifies the block structure, index, previous
+hash, calculated hash and signature against the user's registered database key
+before storing a copy. Incoming blocks are not rebroadcast or appended to the
+receiver's own chain. Reciprocal connections send once per peer; duplicate
+delivery does not append twice.
+
+Start both nodes with fresh in-memory chains before testing. A missing predecessor
+is reported as `missing-history` and rejected without changing stored data.
+The receiver requests missing history through chain sync (#40). Persistence
+remains separate work (#30). Received copies are not written
+to the shared SQL index again; the originating audit operation already writes it.
+Peer identity still comes from the unauthenticated hello introduced in #22;
+this is a trusted demo-network transport, not authenticated node identity.
+Cryptographic access-event verification does not authenticate the sending node.
+
+Use a separate `DB_PATH` and matching JWT settings for a fresh demo if your old
+database still has Swedish roles; preserve the old database and key directory.
+Both demo nodes must share the new database. Log in as `doctor1`, then request
+`GET /api/patients/1` with its cookie. Confirm `accepted` on the other node, then
+repeat in the opposite direction. `npm test` includes this full flow with two
+server processes and a temporary database, plus tampering and duplicate tests.
+
+### Chain synchronization (#40)
+
+After each valid peer hello (including reconnects), nodes request one another's
+own chains with `chain:request` and `chain:response`. A response contains the
+sender's complete chain, including genesis. All hashes, links, node IDs and
+non-genesis signatures are verified before a replica is stored. Missing block
+history triggers another request. Unanswered requests retry every five seconds
+while connected; disconnect/shutdown clears pending timers.
+
+Each node writes only its own chain. Read-only replicas are exposed as defensive
+copies. A matching older response cannot truncate newer data, and conflicting
+history is rejected rather than selected by a longest-chain rule. No incoming
+history replaces the local owner's chain. The access-log endpoint combines
+local and replicated chains, filters by patient and sorts newest first.
+
+This supports the configured direct peer topology (`PEER_URL`); it does not
+discover or relay arbitrary peers. It also does not persist local chains across
+process restarts. If an owner restarts with genesis only, another node preserves
+its longer replica; restoring the owner's chain and avoiding reused SQL block
+indices still require #30. See [P2P verification](docs/p2p-test.md) for tested
+scenarios and the distinction between a transport outage and a process restart.
 
 ### Tester
+
+Live-note server integration for #41 is described in
+[docs/live-notes-integration.md](docs/live-notes-integration.md). Both peers use
+the `/peers` namespace; browsers use `/`. Set a shared server-only `PEER_SECRET`
+to enable note forwarding. The note POST endpoint and frontend integration are
+still required before the complete live-note scenario can be accepted.
 
 Kör `cd server && npm test`. Signerings- och access-loggtester använder temporära
 SQLite-filer och nyckelkataloger, inklusive separata processer. Kärntesterna

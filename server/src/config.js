@@ -24,10 +24,17 @@ if (!process.env.JWT_SECRET) {
   console.warn(`JWT_SECRET is missing in ${envFile}, using the development value.`);
 }
 
+// Utan PEER_SECRET avvisar /peers alla anslutningar, så ingen synk mellan noderna.
+if (!process.env.PEER_SECRET) {
+  console.warn(`PEER_SECRET is missing in ${envFile}; all peer connections on /peers will be rejected.`);
+}
+
 export const config = {
   port,
   nodeId: process.env.NODE_ID || `node-${port}`,
   peerUrl: process.env.PEER_URL || null,
+  peerSecret: process.env.PEER_SECRET || null,
+  nodeUrl: process.env.NODE_URL || `http://localhost:${port}`,
   clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
   dbPath: process.env.DB_PATH || '../data/journal.db',
   jwtSecret: process.env.JWT_SECRET || DEV_JWT_SECRET,
