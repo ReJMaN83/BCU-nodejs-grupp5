@@ -141,8 +141,8 @@ Varje lyckad `GET /api/patients/:id` blir ett signerat block i nodens egen kedja
 **Utvecklingsläge:** nyckelparet för en användare skapas första gången hen läser en
 journal, och den publika nyckeln skrivs till `users.public_key`. Kedjan ligger i minnet
 och börjar om med ett nytt genesisblock vid omstart (kedjepersistens: #30).
-Broadcast till peer skickar nu signerade block med `block:new` (#39). Accessloggen visar bara den egna
-nodens kedja tills chain-sync finns (#40).
+Broadcast till peer skickar signerade block med `block:new` (#39). Accessloggen
+visar nu både den egna kedjan och verifierade kopior av anslutna peers kedjor (#40).
 
 ### Block broadcast (#39)
 
@@ -157,8 +157,8 @@ delivery does not append twice.
 
 Start both nodes with fresh in-memory chains before testing. A missing predecessor
 is reported as `missing-history` and rejected without changing stored data.
-Offline delivery, startup synchronization, persistence and combined access-log
-views are separate follow-up work (#30 and #40). Received copies are not written
+The receiver requests missing history through chain sync (#40). Persistence
+remains separate work (#30). Received copies are not written
 to the shared SQL index again; the originating audit operation already writes it.
 Peer identity still comes from the unauthenticated hello introduced in #22;
 this is a trusted demo-network transport, not authenticated node identity.
@@ -170,6 +170,28 @@ Both demo nodes must share the new database. Log in as `doctor1`, then request
 `GET /api/patients/1` with its cookie. Confirm `accepted` on the other node, then
 repeat in the opposite direction. `npm test` includes this full flow with two
 server processes and a temporary database, plus tampering and duplicate tests.
+
+### Chain synchronization (#40)
+
+After each valid peer hello (including reconnects), nodes request one another's
+own chains with `chain:request` and `chain:response`. A response contains the
+sender's complete chain, including genesis. All hashes, links, node IDs and
+non-genesis signatures are verified before a replica is stored. Missing block
+history triggers another request. Unanswered requests retry every five seconds
+while connected; disconnect/shutdown clears pending timers.
+
+Each node writes only its own chain. Read-only replicas are exposed as defensive
+copies. A matching older response cannot truncate newer data, and conflicting
+history is rejected rather than selected by a longest-chain rule. No incoming
+history replaces the local owner's chain. The access-log endpoint combines
+local and replicated chains, filters by patient and sorts newest first.
+
+This supports the configured direct peer topology (`PEER_URL`); it does not
+discover or relay arbitrary peers. It also does not persist local chains across
+process restarts. If an owner restarts with genesis only, another node preserves
+its longer replica; restoring the owner's chain and avoiding reused SQL block
+indices still require #30. See [P2P verification](docs/p2p-test.md) for tested
+scenarios and the distinction between a transport outage and a process restart.
 
 ### Tester
 

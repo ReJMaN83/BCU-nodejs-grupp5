@@ -14,28 +14,80 @@ function validHello(message) {
 
 // Each node both accepts connections and connects to its configured peer.
 export function createPeer(httpServer, {
-  nodeId, peerUrl, url, getChainLength, receiveBlock, logger = console,
+  nodeId, peerUrl, url, getChainLength, receiveBlock, getChain, receiveChain,
+  logger = console,
 }) {
   const socketServer = new Server(httpServer);
   const hello = () => ({ nodeId, url, chainLength: getChainLength() });
   const connections = new Map();
+  const requests = new Map();
+  const refreshRequests = new Set();
+
+  function clearRequest(socket) {
+    clearTimeout(requests.get(socket));
+    requests.delete(socket);
+    refreshRequests.delete(socket);
+  }
+
+  function requestChain(socket, refresh = false) {
+    if (!receiveChain || !getChain || !socket.connected || !connections.has(socket)) return;
+    if (requests.has(socket)) {
+      if (refresh) refreshRequests.add(socket);
+      return;
+    }
+    const timeout = setTimeout(() => {
+      requests.delete(socket);
+      requestChain(socket);
+    }, 5000);
+    timeout.unref?.();
+    requests.set(socket, timeout);
+    socket.emit('chain:request', { nodeId });
+  }
 
   function attach(socket) {
     socket.on('peer:hello', (message) => {
       receiveHello(message);
       if (validHello(message) && message.nodeId !== nodeId) {
         connections.set(socket, message.nodeId);
+        requestChain(socket);
       } else {
         connections.delete(socket);
+        clearRequest(socket);
       }
     });
-    socket.on('disconnect', () => connections.delete(socket));
+    socket.on('disconnect', () => {
+      connections.delete(socket);
+      clearRequest(socket);
+    });
+    socket.on('chain:request', (message) => {
+      const sender = connections.get(socket);
+      if (!sender || message?.nodeId !== sender || !getChain) return;
+      try {
+        socket.emit('chain:response', { nodeId, chain: getChain() });
+      } catch (error) {
+        logger.warn(`[${nodeId}] cannot send chain: ${error.message}`);
+      }
+    });
+    socket.on('chain:response', (message) => {
+      const sender = connections.get(socket);
+      if (!sender || !requests.has(socket) || !receiveChain) return;
+      const refresh = refreshRequests.has(socket);
+      clearRequest(socket);
+      try {
+        const result = receiveChain(message, sender);
+        logger.log(`[${nodeId}] chain:response from ${sender}: ${result}`);
+      } catch (error) {
+        logger.warn(`[${nodeId}] chain:response rejected: ${error.message}`);
+      }
+      if (refresh) requestChain(socket);
+    });
     socket.on('block:new', (message) => {
       const sender = connections.get(socket);
       if (!sender || !receiveBlock) return;
       try {
         const result = receiveBlock(message, sender);
         logger.log(`[${nodeId}] block:new from ${sender}: ${result}`);
+        if (result === 'missing-history' || result === 'invalid') requestChain(socket, true);
       } catch (error) {
         logger.warn(`[${nodeId}] block:new rejected: ${error.message}`);
       }
@@ -81,6 +133,7 @@ export function createPeer(httpServer, {
     },
     close() {
       if (!closing) {
+        for (const socket of requests.keys()) clearRequest(socket);
         client?.disconnect();
         // Socket.IO also closes the underlying HTTP server.
         closing = new Promise((resolve) => socketServer.close(resolve));
