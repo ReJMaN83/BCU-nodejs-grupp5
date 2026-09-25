@@ -15,3 +15,6 @@ data/
 
 # Privat nyckellagring kopplad till databasfilen
 *.keys/
+
+# Lokala Claude Code-instruktioner
+CLAUDE.local.md
