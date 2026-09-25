@@ -200,6 +200,7 @@ describe('access log', () => {
     expect(result.dbFile).toBe(productionDb);
     expect(result.indexes).toEqual([0, 1, 2]);
     expect(result.validChain).toBe(true);
+    expect(result.chainVerification).toEqual({ valid: true, position: null, reason: null });
     expect(result.validSignatures).toEqual([true, true]);
     expect(readdirSync(`${productionDb}.keys`)).toEqual(['1.pem']);
   });
