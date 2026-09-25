@@ -28,6 +28,8 @@ export const config = {
   port,
   nodeId: process.env.NODE_ID || `node-${port}`,
   peerUrl: process.env.PEER_URL || null,
+  peerSecret: process.env.PEER_SECRET || null,
+  nodeUrl: process.env.NODE_URL || `http://localhost:${port}`,
   clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
   dbPath: process.env.DB_PATH || '../data/journal.db',
   jwtSecret: process.env.JWT_SECRET || DEV_JWT_SECRET,
