@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../api/client';
 import { mockPatientDetails } from '../api/mockPatientDetails';
+import { socket } from '../api/socket';
 import './PatientView.css';
 
 const VISIBILITY_LABELS = {
@@ -72,6 +73,40 @@ export default function PatientView({ patientIdOverride }) {
         console.warn('Could not fetch access log, using mock data.');
       });
   }, [id]);
+
+  useEffect(() => {
+  if (!id) return;
+
+  socket.connect();
+
+  // TODO: confirm the exact join-room event name/payload with the backend team.
+  // The contract states the client "joins the room patient:<id> when a patient
+  // view opens" but doesn't specify whether this happens automatically or via
+  // an explicit emit. Assuming an explicit emit for now:
+  socket.emit('join-patient-room', id);
+
+  const handleNoteCreated = (payload) => {
+    // payload = { originNodeId, note }
+    const newNote = payload.note;
+
+    if (String(newNote.patientId) !== String(id)) return; // safety check
+
+    setPatient((prev) => {
+      if (!prev) return prev;
+      // Avoid duplicates if the note already exists (e.g. we sent it ourselves)
+      if (prev.notes.some((n) => n.id === newNote.id)) return prev;
+      return { ...prev, notes: [newNote, ...prev.notes] };
+    });
+  };
+
+  socket.on('note:created', handleNoteCreated);
+
+  return () => {
+    socket.off('note:created', handleNoteCreated);
+    // TODO: confirm if/how the client should leave the room on unmount.
+    socket.disconnect();
+  };
+}, [id]);
 
   if (!patient) {
     return (
