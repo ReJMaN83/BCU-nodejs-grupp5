@@ -1,6 +1,9 @@
+import cookieParser from 'cookie-parser';
+import { once } from 'node:events';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { io } from 'socket.io-client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 // config.js läser env-filen när modulen laddas, så testet pekar ut en egen fil
@@ -18,11 +21,18 @@ process.argv.push('--env', envFile);
 const { createApp } = await import('../app.js');
 const { config } = await import('../config.js');
 const { db } = await import('../db.js');
+const { userFromRequest } = await import('../auth.js');
+const { createNoteEvents } = await import('../note-events.js');
+const { setNotePublisher } = await import('../notes-live.js');
+const { createPeer } = await import('../peer.js');
 
 const PASSWORD = 'demo1234';
 const PATIENT_ID = 1;
 let server;
+let peer;
+let notesPublish;
 let baseUrl;
+const sockets = [];
 const cookies = {};
 
 async function login(username) {
@@ -60,13 +70,29 @@ beforeAll(async () => {
   await new Promise((resolve) => server.once('listening', resolve));
   baseUrl = `http://localhost:${server.address().port}`;
 
+  // Samma koppling som i index.js, utan peer (ingen PEER_URL eller PEER_SECRET).
+  const parseCookies = cookieParser();
+  const notes = createNoteEvents({ nodeId: config.nodeId, db, authenticate: (request) => {
+    parseCookies(request, {}, () => {});
+    return userFromRequest(request);
+  } });
+  peer = createPeer(server, {
+    nodeId: config.nodeId, url: baseUrl, getChainLength: () => 1,
+    attachClients: notes.attach, logger: { log() {}, warn() {} },
+  });
+  notes.setBroadcaster(peer.broadcastNote);
+  notesPublish = notes.publish;
+  setNotePublisher(notesPublish);
+
   for (const username of ['doctor1', 'nurse1', 'clinic1', 'patient1', 'unauthorized1']) {
     cookies[username] = await login(username);
   }
 });
 
 afterAll(async () => {
-  await new Promise((resolve) => server.close(resolve));
+  sockets.forEach((socket) => socket.disconnect());
+  // Socket.IO stänger även HTTP-servern.
+  await peer.close();
   db.close();
   rmSync(directory, { recursive: true, force: true });
 });
@@ -178,5 +204,57 @@ describe('visibility of new notes', () => {
 
   it('shows only the everyone note to the patient', async () => {
     expect(await visibleNewNotes('patient1')).toEqual(['everyone']);
+  });
+});
+
+describe('note:created after POST', () => {
+  async function joinedSocket(username, patientId) {
+    const socket = io(baseUrl, {
+      autoConnect: false, reconnection: false, extraHeaders: { Cookie: cookies[username] },
+    });
+    sockets.push(socket);
+    const connected = once(socket, 'connect');
+    socket.connect();
+    await connected;
+    const ack = await socket.timeout(2000).emitWithAck('join-patient-room', patientId);
+    expect(ack).toEqual({ ok: true, patientId });
+    return socket;
+  }
+
+  it('reaches a socket in patient:1 when doctor1 posts', async () => {
+    const socket = await joinedSocket('nurse1', PATIENT_ID);
+    const received = once(socket, 'note:created');
+
+    const res = await postNote('doctor1', { text: 'Live note', visibility: 'staff' });
+    expect(res.status).toBe(201);
+    const note = await res.json();
+
+    const [payload] = await received;
+    expect(payload).toEqual({ originNodeId: 'node-test', note });
+  });
+
+  it('does not send the note to a socket in another patient room', async () => {
+    const other = await joinedSocket('doctor1', 2);
+    const same = await joinedSocket('doctor1', PATIENT_ID);
+    const got = [];
+    other.on('note:created', (payload) => got.push(payload));
+    const received = once(same, 'note:created');
+
+    expect((await postNote('doctor1', { text: 'Only room 1', visibility: 'everyone' })).status).toBe(201);
+    await received;
+    expect(got).toEqual([]);
+  });
+
+  it('still returns 201 and keeps the note when live delivery fails', async () => {
+    setNotePublisher(() => { throw new Error('socket down'); });
+    try {
+      const res = await postNote('doctor1', { text: 'Saved anyway', visibility: 'staff' });
+      expect(res.status).toBe(201);
+      const note = await res.json();
+      const list = await (await request(`/api/patients/${PATIENT_ID}/notes`, { as: 'doctor1' })).json();
+      expect(list).toContainEqual(note);
+    } finally {
+      setNotePublisher(notesPublish);
+    }
   });
 });

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { accessLogFor, auditLogger } from '../audit-logger.js';
 import { db } from '../db.js';
+import { publishCreatedNote } from '../notes-live.js';
 import { requireAuth, requireRole, STAFF_ROLES } from '../middleware.js';
 
 export const patientsRouter = Router();
@@ -125,10 +126,16 @@ patientsRouter.post(
     });
     const note = selectNote.get(lastInsertRowid);
 
-    // TODO (#41): skicka note:created med anteckningen till rummet
-    // patient:<id>. socket.io finns inte på main än; Aamods PR #89 (broadcast)
-    // och #97 (rum + publishCreatedNote i notes-live.js) lägger till det.
-    // Inget emitteras härifrån förrän de är mergade.
+    // note:created skickas när svaret gått iväg. auditLogger registrerade sin
+    // finish-lyssnare först, så write-blocket finns redan. Live-leveransen är
+    // best effort: anteckningen är sparad, så ett fel här får aldrig ge 500.
+    res.on('finish', () => {
+      try {
+        publishCreatedNote(note.id);
+      } catch (err) {
+        console.error(`[notes] could not publish note ${note.id}:`, err.message);
+      }
+    });
 
     return res.status(201).json(note);
   },
