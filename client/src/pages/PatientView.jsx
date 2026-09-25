@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { mockPatientDetails } from '../api/mockPatientDetails';
+import { api, ApiError } from '../api/client';
 import './PatientView.css';
 
 const VISIBILITY_LABELS = {
@@ -55,6 +56,8 @@ export default function PatientView() {
 
   // TODO (backend integration): replace with api.get(`/api/patients/${id}`)
   const [patient, setPatient] = useState(mockPatientDetails[id]);
+  const [saveError, setSaveError] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   if (!patient) {
     return (
@@ -68,9 +71,6 @@ export default function PatientView() {
 
   const role = user?.role || 'patient'; // fallback for local dev before auth is wired up
   const visibleNotes = patient.notes.filter((note) => isNoteVisible(note, role));
-
- const [saveError, setSaveError] = useState(null);
-const [isSaving, setIsSaving] = useState(false);
 
 const handleSaveNote = async (e) => {
   e.preventDefault();
