@@ -10,12 +10,12 @@ afterEach(async () => {
   await Promise.all(peers.splice(0).map((peer) => peer.close()));
 });
 
-async function start(nodeId, peerUrl, port = 0, getChainLength = () => 1) {
+async function start(nodeId, peerUrl, port = 0, getChainLength = () => 1, receiveBlock) {
   const server = createServer((req, res) => res.end('ok'));
   await new Promise((resolve) => server.listen(port, '127.0.0.1', resolve));
   const url = `http://127.0.0.1:${server.address().port}`;
   const logger = { log: vi.fn(), warn: vi.fn() };
-  const peer = createPeer(server, { nodeId, peerUrl, url, getChainLength, logger });
+  const peer = createPeer(server, { nodeId, peerUrl, url, getChainLength, logger, receiveBlock });
   peers.push(peer);
   return { peer, logger, url, port: server.address().port };
 }
@@ -55,15 +55,22 @@ it('rejects malformed and self hellos without losing the connection', async () =
 });
 
 it('supports reciprocal peer URLs even when the other node starts later', async () => {
+  const received = vi.fn(() => 'accepted');
   const reservation = createServer();
   await new Promise((resolve) => reservation.listen(0, '127.0.0.1', resolve));
   const port = reservation.address().port;
   await new Promise((resolve) => reservation.close(resolve));
   const first = await start('node-a', `http://127.0.0.1:${port}`);
   await vi.waitFor(() => expect(first.logger.warn).toHaveBeenCalled(), { timeout: 3000 });
-  const second = await start('node-b', first.url, port);
+  const second = await start('node-b', first.url, port, () => 1, received);
   await vi.waitFor(() => {
     expect(first.logger.log).toHaveBeenCalledTimes(2);
     expect(second.logger.log).toHaveBeenCalledTimes(2);
   }, { timeout: 8000 });
+  const block = { nodeId: 'node-a', index: 1 };
+  expect(first.peer.broadcastBlock(block)).toBe(1);
+  await vi.waitFor(() => expect(received).toHaveBeenCalledExactlyOnceWith(
+    { nodeId: 'node-a', block }, 'node-a',
+  ));
+  expect(() => second.peer.broadcastBlock(block)).toThrow('Only local blocks');
 }, 15000);

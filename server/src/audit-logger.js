@@ -14,6 +14,12 @@ const insertAccessLog = db.prepare(`
 `);
 
 const selectUserName = db.prepare('SELECT display_name AS name FROM users WHERE id = ?');
+let broadcastBlock = () => {};
+
+export function setBlockBroadcaster(broadcast) {
+  if (typeof broadcast !== 'function') throw new TypeError('Broadcaster must be a function');
+  broadcastBlock = broadcast;
+}
 
 export function recordAccess({ user, patientId, action }) {
   // Eventet får bara innehålla de fyra fälten; modulen signerar och sätter
@@ -35,8 +41,7 @@ export function recordAccess({ user, patientId, action }) {
     timestamp: block.timestamp,
   });
 
-  // TODO (#39): skicka blocket vidare till peers med block:new när
-  // broadcast-koden finns. Inget anrop görs härifrån än.
+  broadcastBlock(block);
   return block;
 }
 
