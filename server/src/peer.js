@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { Server } from 'socket.io';
 import { io } from 'socket.io-client';
 
@@ -12,12 +13,31 @@ function validHello(message) {
   }
 }
 
+// Hashing first gives equal-length buffers, so the comparison takes the same
+// time whatever the length of the supplied secret.
+function sameSecret(given, expected) {
+  if (typeof given !== 'string' || typeof expected !== 'string' || !expected) return false;
+  const digest = (value) => createHash('sha256').update(value).digest();
+  return timingSafeEqual(digest(given), digest(expected));
+}
+
 // Each node both accepts connections and connects to its configured peer.
 export function createPeer(httpServer, {
   nodeId, peerUrl, url, getChainLength, receiveBlock, getChain, receiveChain,
-  logger = console,
+  logger = console, peerSecret, clientOrigin, attachClients, receiveNote,
 }) {
-  const socketServer = new Server(httpServer);
+  const socketServer = new Server(httpServer, {
+    cors: { origin: clientOrigin, credentials: true },
+  });
+  attachClients?.(socketServer.of('/'));
+  const peerNamespace = socketServer.of('/peers');
+  peerNamespace.use((socket, next) => {
+    // Without PEER_SECRET no peer is accepted, instead of every peer.
+    if (!sameSecret(socket.handshake.auth?.peerSecret, peerSecret)) {
+      return next(new Error('Peer authentication required'));
+    }
+    next();
+  });
   const hello = () => ({ nodeId, url, chainLength: getChainLength() });
   const connections = new Map();
   const requests = new Map();
@@ -45,6 +65,13 @@ export function createPeer(httpServer, {
   }
 
   function attach(socket) {
+    socket.on('note:created', (message) => {
+      const sender = connections.get(socket);
+      if (sender && peerSecret && receiveNote) {
+        try { receiveNote(message, sender); }
+        catch (error) { logger.warn(`[${nodeId}] note:created rejected: ${error.message}`); }
+      }
+    });
     socket.on('peer:hello', (message) => {
       receiveHello(message);
       if (validHello(message) && message.nodeId !== nodeId) {
@@ -102,14 +129,16 @@ export function createPeer(httpServer, {
     logger.log(`[${nodeId}] peer:hello from ${message.nodeId} (${message.url}), chainLength=${message.chainLength}`);
   }
 
-  socketServer.on('connection', (socket) => {
+  peerNamespace.on('connection', (socket) => {
     attach(socket);
     socket.emit('peer:hello', hello());
   });
 
   let client;
   if (peerUrl) {
-    client = io(peerUrl, { autoConnect: false, reconnection: true });
+    client = io(`${peerUrl.replace(/\/$/, '')}/peers`, {
+      autoConnect: false, reconnection: true, auth: { peerSecret },
+    });
     attach(client);
     client.on('connect', () => client.emit('peer:hello', hello()));
     client.on('connect_error', (error) => {
@@ -120,6 +149,17 @@ export function createPeer(httpServer, {
 
   let closing;
   return {
+    broadcastNote(message) {
+      // Local clients are served by note-events; without a secret there are no peers.
+      if (!peerSecret) return;
+      if (message.originNodeId !== nodeId) throw new Error('Only local notes may be broadcast');
+      const sent = new Set();
+      for (const [socket, remoteNodeId] of connections) {
+        if (!socket.connected || sent.has(remoteNodeId)) continue;
+        socket.emit('note:created', message);
+        sent.add(remoteNodeId);
+      }
+    },
     broadcastBlock(block) {
       if (block.nodeId !== nodeId) throw new Error('Only local blocks may be broadcast');
       // Reciprocal peer connections are normal. Send once per known node.

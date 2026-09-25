@@ -29,8 +29,8 @@ a claim of a completed manual two-computer demo.
 ## Manual demo using a fresh disposable database
 
 1. Preserve any existing database and key directory. Set both demo env files to
-   the same new `DB_PATH`, matching `JWT_SECRET`, distinct `NODE_ID`/`PORT`, and
-   each other's `PEER_URL`.
+   the same new `DB_PATH`, matching `JWT_SECRET`, the same `PEER_SECRET`, distinct
+   `NODE_ID`/`PORT`, and each other's `PEER_URL`.
 2. Start node A only. Log in using `doctor1` / `demo1234` and read patient 1 via
    `GET /api/patients/1` with the returned cookie. This creates A's first block.
 3. Start node B. Confirm `chain:response from <A>: accepted` in B's terminal.

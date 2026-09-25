@@ -133,7 +133,7 @@ Produktions-exporten återställer den egna kedjan vid start och sparar efter va
 lokalt blocktillägg innan `addAccessLog` returnerar. Vid lagringsfel kastas fel och
 just det nya blocket tas bort ur minneskedjan. Signeringens eventuella
 nyckelregistrering rullas inte tillbaka. `auditLogger` kan därefter indexera det
-returnerade blocket i SQL och skickar det till peers.
+returnerade blocket i SQL och skicka det till peers med `block:new` (#39).
 
 ### Lokal kedjepersistens (#30)
 
@@ -165,6 +165,11 @@ skrivs inte över. Saknas både fil och lokal SQL-historik börjar noden med gen
 filen skapas vid första lyckade blocktillägget. En kedja som ligger före SQL-indexet
 godtas, men saknade indexrader byggs inte upp automatiskt.
 
+**Efter uppgradering till #30:** en databas där servern redan loggat läsningar utan
+kedjefil ger startfelet `Cannot restore local chain: missing file with existing SQL
+access history`. Ta bort `data/journal.db*` (inklusive `.keys` och `.chains`) så
+skapas en ny databas med seed-data vid start.
+
 Lagring skriver en komplett temporär fil i samma katalog, synkar filinnehållet
 och publicerar med atomisk `rename`. Nya kataloger/filer får rättigheterna
 `700`/`600` på Unix och `*.chains/` ignoreras av Git. Ett fel före publicering
@@ -176,7 +181,7 @@ SQL. Ett avbrott före publicering kan lämna en temporär fil som inte används
 Kör bara en skrivande process per kombination av databas och `NODE_ID`. En fil
 som ändrats eller tagits bort sedan instansen läste/skrev den avvisas vid nästa
 skrivning, men detta är inget lås för samtidiga skrivare. Endast den egna lokala
-kedjan lagras; peer-repliker, synkronisering och återhämtning från peers ingår inte.
+kedjan lagras på disk; peer-repliker hålls i minnet och byggs upp igen med chain-sync (#40).
 
 ### Accesslogg i kedjan
 
@@ -185,8 +190,8 @@ Varje lyckad `GET /api/patients/:id` blir ett signerat block i nodens egen kedja
 `GET /api/patients/:id/access-log` läser från kedjan och visar `verified` per post.
 
 **Utvecklingsläge:** nyckelparet för en användare skapas första gången hen läser en
-journal, och den publika nyckeln skrivs till `users.public_key`. Kedjan ligger i minnet
-och börjar om med ett nytt genesisblock vid omstart (kedjepersistens: #30).
+journal, och den publika nyckeln skrivs till `users.public_key`. Den lokala kedjan
+sparas och verifieras vid återställning enligt avsnittet om kedjepersistens.
 Broadcast till peer skickar signerade block med `block:new` (#39). Accessloggen
 visar nu både den egna kedjan och verifierade kopior av anslutna peers kedjor (#40).
 
@@ -201,8 +206,8 @@ before storing a copy. Incoming blocks are not rebroadcast or appended to the
 receiver's own chain. Reciprocal connections send once per peer; duplicate
 delivery does not append twice.
 
-Use a separate demo database and persistent chain files when testing. A missing predecessor
-is reported as `missing-history` and rejected without changing stored data.
+A missing predecessor is reported as `missing-history` and rejected without
+changing stored data.
 The receiver requests missing history through chain sync (#40). Persistence
 remains separate work (#30). Received copies are not written
 to the shared SQL index again; the originating audit operation already writes it.
@@ -233,7 +238,10 @@ history replaces the local owner's chain. The access-log endpoint combines
 local and replicated chains, filters by patient and sorts newest first.
 
 This supports the configured direct peer topology (`PEER_URL`); it does not
-discover or relay arbitrary peers. Local chains survive process restarts through #30; peer replicas are rebuilt by synchronization. See [P2P verification](docs/p2p-test.md) for the combined restart test.
+discover or relay arbitrary peers. Each node restores its own chain from disk at
+startup (#30); peer replicas are kept in memory and rebuilt with `chain:request`
+when the peer answers. See [P2P verification](docs/p2p-test.md) for tested
+scenarios and the distinction between a transport outage and a process restart.
 
 ### Verifiera kedjan (#28)
 
@@ -311,6 +319,12 @@ Regressionstestet finns i `server/src/chain-verification.test.js`, tillsammans
 med ett test där hashar räknas om men den ursprungliga signaturen inte stämmer.
 
 ### Tester
+
+Live-note server integration for #41 is described in
+[docs/live-notes-integration.md](docs/live-notes-integration.md). Both peers use
+the `/peers` namespace; browsers use `/`. Set a shared server-only `PEER_SECRET`
+to enable note forwarding. The note POST endpoint and frontend integration are
+still required before the complete live-note scenario can be accepted.
 
 Kör `cd server && npm test`. Signerings- och access-loggtester använder temporära
 SQLite-filer och nyckelkataloger, inklusive separata processer. Kärntesterna

@@ -28,7 +28,8 @@ it('preserves simultaneous reads and offline reads across real process restarts'
       const env = join(directory, `${index}.env`);
       writeFileSync(env, [`PORT=${ports[index]}`, `NODE_ID=node-${index}`,
         `PEER_URL=http://127.0.0.1:${ports[1 - index]}`,
-        `DB_PATH=${database.replaceAll('\\', '/')}`, 'JWT_SECRET=restart-test'].join('\n'));
+        `DB_PATH=${database.replaceAll('\\', '/')}`, 'JWT_SECRET=restart-test',
+        'PEER_SECRET=restart-peer-test'].join('\n'));
       const child = spawn(process.execPath, [fileURLToPath(new URL('./index.js', import.meta.url)), '--env', env], { windowsHide: true });
       const closed = once(child, 'close');
       const instance = { child, closed, output: '' };
