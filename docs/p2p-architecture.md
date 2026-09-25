@@ -11,8 +11,8 @@ flowchart LR
   S2 --> DB
   S1 --> A[Own chain A and read-only replica B]
   S2 --> B[Own chain B and read-only replica A]
-  S1 -.->|Authorized note events: integration pending| C1
-  S2 -.->|Authorized note events: integration pending| C2
+  S1 -.->|Authorized note:created| C1
+  S2 -.->|Authorized note:created| C2
 ```
 
 Each server writes only its own chain. A received chain is a separate validated
@@ -20,10 +20,11 @@ replica; it never replaces the receiver's local chain. Journal text stays in
 SQLite, not in blocks. Blocks contain access-event IDs, role, action, timestamp
 and cryptographic verification material. The access log combines known chains.
 
-Solid arrows show the #22/#39/#40 implementation. Live notes (#41) still require
-the backend note-save hook and frontend integration. Persistence is provided by
-Mats' PR #92, not by this documentation branch. Review and merge dependencies
-before demonstrating their combined behavior.
+Solid arrows show the #22/#39/#40 implementation. Each node restores its own
+chain from disk at startup (#30). Dotted arrows are live notes (#41): a saved note
+is sent as `note:created` to authorized clients in the room `patient:<id>` on both
+servers. Peer traffic uses the `/peers` namespace and requires `PEER_SECRET`; see
+the socket section of [the data contract](kontrakt.md).
 
 ## Safe local setup (Windows PowerShell)
 
@@ -55,9 +56,10 @@ already exist. Compare before editing an existing file. Set these values:
 | `DB_PATH` | `../data/demo-v39.db` (choose a new path) | Same exact path |
 | `JWT_SECRET` | New local random secret | Same secret |
 | `CLIENT_ORIGIN` | `http://localhost:5173` | `http://localhost:5174` |
+| `PEER_SECRET` | New local random secret | Same secret |
 
-Once #41's server integration is included, also set the same random `PEER_SECRET`
-on both servers. Keep it server-side; never put it in a `VITE_` variable.
+`PEER_SECRET` is required: without it `/peers` rejects every peer and the nodes do
+not sync (#101). Keep it server-side; never put it in a `VITE_` variable.
 
 Start each server in a separate terminal from the repository root:
 
@@ -89,9 +91,9 @@ npm run dev --prefix client -- --port 5174 --strictPort
 ```
 
 Use separate browser profiles/private sessions for different roles: cookies on
-localhost are shared across ports. On this baseline, patient views still contain
-mock data; starting Vite is not evidence that real notes or live events work.
-Use API tests until the frontend integration has been reviewed.
+localhost are shared across ports. Search and patient details still use mock
+data until #64. The access log, note form and live updates call the real API and
+socket, so real notes and live events are shown through the API until then.
 
 ## Demo order and checks
 
@@ -100,11 +102,12 @@ Use API tests until the frontend integration has been reviewed.
    patient through the API and show the signed access entry on both nodes.
 3. Explain that `verified` checks the chain and registered user signature; it
    does not prove clinical correctness or authenticate the remote node itself.
-4. With #92 and the #42 integration test included, restart a peer and show that
-   stored history survives and missed access entries are synchronized.
-5. Show live notes only after the note POST endpoint and frontend are integrated.
+4. Restart a peer and show that stored history survives and missed access
+   entries are synchronized (#30, #42).
+5. Create a note with `POST /api/patients/1/notes` on one node and show
+   `note:created` on a client in `patient:1` on the other node (#41).
 
-Stop each process with Ctrl+C. Keep database, `.keys` and (with #92) `.chains`
+Stop each process with Ctrl+C. Keep database, `.keys` and `.chains`
 storage together for backup; no private files or node_modules belong in a PR.
 For reproducible automated evidence, see [p2p-test.md](p2p-test.md).
 
