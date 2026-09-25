@@ -193,6 +193,82 @@ its longer replica; restoring the owner's chain and avoiding reused SQL block
 indices still require #30. See [P2P verification](docs/p2p-test.md) for tested
 scenarios and the distinction between a transport outage and a process restart.
 
+### Verifiera kedjan (#28)
+
+`chain.verifyChain()` kontrollerar struktur, genesis, nodtillhörighet, index,
+länkar, lagrade hashar och varje access-events signatur mot `users.public_key`.
+`chain.verifyChain(blocks)` kontrollerar också en JSON-återläst array utan att
+ersätta den egna kedjan. Förväntad nod är alltid den som instansen skapades för.
+
+```js
+const result = chain.verifyChain();
+// { valid: true, position: null, reason: null }
+```
+
+Vid fel returneras `{ valid: false, position, reason }`. `position` är det första
+felaktiga blockets nollbaserade plats i arrayen, inklusive genesis på plats 0,
+oberoende av blockets lagrade `index`. Fel på kedjeindatan, till exempel en tom
+array, ger `position: null`. `reason` är en kort felorsak på engelska.
+
+För senare backend-/P2P-integration finns även den fristående funktionen:
+
+```js
+import { verifyChain } from './src/blockchain.js';
+
+const result = verifyChain(blocks, expectedNodeId, signing.verifyAccessEvent);
+```
+
+Använd `verifyAccessEvent` från `createAccessSigner(db, keyDirectory)` med den
+betrodda användardatabasen. Den fristående funktionen kräver verifieraren och
+kastar `TypeError` om den saknas. `expectedNodeId` ska komma från anroparens
+nodkonfiguration/instans, inte från kedjans påstådda identitet. Verifieringen är
+synkron och använder blockets ursprungliga tidsstämpel. Den ändrar inga block,
+hashar eller nycklar. `Blockchain.isValid()` behåller sitt boolean-resultat för
+enbart struktur/hash, och `verifyAccessEvent` behåller sitt befintliga gränssnitt.
+
+Inför #30 behöver återläst JSON verifieras innan kedjan tas i bruk, med bevarad
+fältordning i `data`, tidsstämpeltext och betrodda publika användarnycklar. Hur
+lagring och återställning ska samordnas återstår för #30. En giltig kedja bevisar
+inte att alla slutblock finns kvar; upptäckt av avkortning kräver en separat betrodd
+referens till tidigare kedjeände. Ingen persistens eller Merkle-logik ingår här.
+
+### Reproducera manipuleringstestet (#31)
+
+Kör från `server/` efter `npm ci`. Exemplet skapar en databas i minnet och nya
+testnycklar i en temporär katalog. Det öppnar inte den vanliga demodatabasen.
+Raden `copy[1].data.patientId = 99` är den manuella ändringen i JSON-kopian:
+
+```bash
+node --input-type=module <<'JS'
+import Database from 'better-sqlite3';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createAccessLog } from './src/access-log.js';
+
+const directory = mkdtempSync(join(tmpdir(), 'bcu-tamper-demo-'));
+const db = new Database(':memory:');
+try {
+  db.exec(readFileSync('../docs/database.sql', 'utf8'));
+  const chain = createAccessLog('test-node', db, join(directory, 'test.keys'));
+  chain.addAccessLog({ userId: 1, role: 'doctor', patientId: 2, action: 'read' });
+  const copy = JSON.parse(JSON.stringify(chain.blockchain.chain));
+  console.log('Before:', chain.verifyChain(copy));
+  copy[1].data.patientId = 99;
+  console.log('After:', chain.verifyChain(copy));
+  console.log('Original:', chain.verifyChain());
+} finally {
+  db.close();
+  rmSync(directory, { recursive: true, force: true });
+}
+JS
+```
+
+Förväntat: `Before` och `Original` är giltiga. `After` ger
+`{ valid: false, position: 1, reason: 'Invalid block hash' }`.
+Regressionstestet finns i `server/src/chain-verification.test.js`, tillsammans
+med ett test där hashar räknas om men den ursprungliga signaturen inte stämmer.
+
 ### Tester
 
 Live-note server integration for #41 is described in

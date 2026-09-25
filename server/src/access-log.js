@@ -1,4 +1,4 @@
-import { Blockchain } from './blockchain.js';
+import { Blockchain, verifyChain } from './blockchain.js';
 import { createAccessSigner } from './access-signing.js';
 
 export function createAccessLog(nodeId, db, keyDirectory) {
@@ -14,5 +14,9 @@ export function createAccessLog(nodeId, db, keyDirectory) {
     return blockchain.addBlock(data, timestamp);
   }
 
-  return { blockchain, addAccessLog };
+  return {
+    blockchain,
+    addAccessLog,
+    verifyChain: (blocks = blockchain.chain) => verifyChain(blocks, nodeId, signing.verifyAccessEvent),
+  };
 }
