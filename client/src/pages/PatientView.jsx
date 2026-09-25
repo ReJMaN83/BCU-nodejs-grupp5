@@ -46,9 +46,10 @@ function isNoteVisible(note, role) {
   return false;
 }
 
-export default function PatientView() {
-  const { id } = useParams();
+export default function PatientView({ patientIdOverride }) {
+  const { id: idFromUrl } = useParams();
   const { user } = useAuth();
+  const id = patientIdOverride || idFromUrl;
 
   const [noteText, setNoteText] = useState('');
   const [visibility, setVisibility] = useState('staff');
