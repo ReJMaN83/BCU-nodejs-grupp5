@@ -317,20 +317,79 @@ Byggs av alla kända noders kedjor, filtreras på `patientId` och sorteras på
 
 ## Socket-events
 
-socket.io används på två sätt:
+**Uppdaterat 2026-09-25.** Beskriver koden från #97 och #101.
 
-- **Peer:** varje server ansluter som klient till `PEER_URL`.
-- **Webbklient:** klienten ansluter till sin server med cookien och går med i rummet
-  `patient:<id>` när en patientvy öppnas. Servern kontrollerar behörighet innan
-  klienten får gå med.
+socket.io används på två sätt, i två olika namespaces på samma port:
 
-| Event | Riktning | När |
-|---|---|---|
-| `peer:hello` | server → peer | Direkt efter anslutning |
-| `block:new` | server → peer | Nytt block har lagts till i egen kedja |
-| `chain:request` | server → peer | Vid uppstart, eller när ett block inte går att validera |
-| `chain:response` | peer → server | Svar på `chain:request` |
-| `note:created` | server → peer, server → webbklient | Ny anteckning har sparats |
+- **Peer, namespace `/peers`:** varje server ansluter som klient till `<PEER_URL>/peers`
+  och tar emot peerns anslutning på samma namespace. Se Peer-autentisering nedan.
+- **Webbklient, namespace `/`:** klienten ansluter till sin server med JWT-cookien och
+  går med i rummet `patient:<id>` med `join-patient-room` när en patientvy öppnas.
+  Servern kontrollerar behörighet innan klienten får gå med.
+
+| Event | Namespace | Riktning | När |
+|---|---|---|---|
+| `peer:hello` | `/peers` | server → peer | Direkt efter anslutning |
+| `block:new` | `/peers` | server → peer | Nytt block har lagts till i egen kedja |
+| `chain:request` | `/peers` | server → peer | Efter `peer:hello`, eller när ett block inte går att validera |
+| `chain:response` | `/peers` | peer → server | Svar på `chain:request` |
+| `note:created` | `/peers` | server → peer | Ny anteckning har sparats |
+| `join-patient-room` | `/` | webbklient → server | Patientvyn öppnas |
+| `leave-patient-room` | `/` | webbklient → server | Patientvyn stängs |
+| `note:created` | `/` | server → webbklient | Ny anteckning i rummet som klienten får se |
+
+### Peer-autentisering
+
+Peern skickar `PEER_SECRET` i handshaken:
+
+```js
+io(`${PEER_URL}/peers`, { auth: { peerSecret: PEER_SECRET } });
+```
+
+- `PEER_SECRET` sätts i env och ska ha samma värde på båda servrarna. Den får aldrig
+  ligga i en `VITE_`-variabel.
+- Servern jämför med `timingSafeEqual`. Saknas eller skiljer sig värdet avvisas
+  anslutningen med `connect_error` och meddelandet `Peer authentication required`.
+- Saknas `PEER_SECRET` på servern avvisas alla anslutningar till `/peers`, och servern
+  varnar vid start. Då sker ingen synk mellan noderna.
+
+### Webbklient
+
+Anslutningen till `/` kräver JWT-cookien. Utan giltig cookie avvisas den med
+`connect_error` och meddelandet `Not authenticated`.
+
+#### `join-patient-room`
+
+Payload är patientens id, ett heltal (en numerisk sträng godtas också). Servern svarar
+med ack.
+
+```js
+socket.emit('join-patient-room', 1, (result) => { /* … */ });
+```
+
+```json
+// lyckat
+{ "ok": true, "patientId": 1 }
+
+// fel
+{ "ok": false, "status": 403 }
+```
+
+| `status` | Betydelse |
+|---|---|
+| `400` | Id:t är inte ett positivt heltal |
+| `401` | Inte inloggad längre. Servern kopplar även ner socketen |
+| `403` | Rollen får inte se journalen, t.ex. `unauthorized` eller en annan patient |
+| `404` | Patienten finns inte |
+
+Samma behörighet som `GET /api/patients/:id`. En socket är med i högst ett
+patientrum: ett lyckat `join-patient-room` lämnar det föregående.
+
+#### `leave-patient-room`
+
+Ingen payload och inget ack. Socketen lämnar sitt patientrum.
+
+### Events mellan servrar och till webbklient
 
 #### `peer:hello`
 
@@ -380,9 +439,19 @@ innan den ersätter sin kopia.
 
 #### `note:created`
 
-Innehåller anteckningen, men skickas aldrig in i kedjan (beslut c). Servern som tar emot
-eventet från peern skickar det vidare till rummet `patient:<patientId>`. Varje server
-skickar bara anteckningen till de klienter i rummet som får se den enligt `visibility`.
+Innehåller anteckningen, men skickas aldrig in i kedjan (beslut c). Samma payload
+används mot peer och mot webbklient.
+
+- **Egna klienter:** servern som sparade anteckningen skickar alltid eventet till sina
+  egna klienter i rummet `patient:<patientId>`, oavsett om någon peer är ansluten eller
+  `PEER_SECRET` är satt.
+- **Peer:** finns en autentiserad peer skickas eventet dit också. Utan `PEER_SECRET`
+  hoppas peers över utan fel.
+- **Mottagande server:** läser anteckningen från databasen utifrån `note.id` och
+  använder inte text eller `visibility` från peern. Sedan skickas den till klienterna i
+  rummet `patient:<patientId>`.
+- Varje server skickar bara anteckningen till de klienter i rummet som får se den enligt
+  `visibility`. Behörigheten kontrolleras mot databasen vid varje leverans.
 
 ```json
 {

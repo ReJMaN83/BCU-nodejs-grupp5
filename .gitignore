@@ -15,3 +15,9 @@ data/
 
 # Privat nyckellagring kopplad till databasfilen
 *.keys/
+
+# Local chain snapshots, one file per node
+*.chains/
+
+# Lokala Claude Code-instruktioner
+CLAUDE.local.md

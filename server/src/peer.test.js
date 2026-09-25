@@ -3,6 +3,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { io } from 'socket.io-client';
 import { createPeer } from './peer.js';
 
+const PEER_SECRET = 'peer-test-secret';
 const peers = [];
 const clients = [];
 afterEach(async () => {
@@ -15,7 +16,9 @@ async function start(nodeId, peerUrl, port = 0, getChainLength = () => 1, receiv
   await new Promise((resolve) => server.listen(port, '127.0.0.1', resolve));
   const url = `http://127.0.0.1:${server.address().port}`;
   const logger = { log: vi.fn(), warn: vi.fn() };
-  const peer = createPeer(server, { nodeId, peerUrl, url, getChainLength, logger, receiveBlock });
+  const peer = createPeer(server, {
+    nodeId, peerUrl, url, getChainLength, logger, receiveBlock, peerSecret: PEER_SECRET,
+  });
   peers.push(peer);
   return { peer, logger, url, port: server.address().port };
 }
@@ -40,7 +43,7 @@ it('exchanges hello in both directions and reconnects with current chain length'
 
 it('rejects malformed and self hellos without losing the connection', async () => {
   const node = await start('node-a');
-  const client = io(node.url, { autoConnect: false });
+  const client = io(`${node.url}/peers`, { autoConnect: false, auth: { peerSecret: PEER_SECRET } });
   clients.push(client);
   const greeting = new Promise((resolve) => client.once('peer:hello', resolve));
   client.connect();

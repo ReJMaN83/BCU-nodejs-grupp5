@@ -28,6 +28,7 @@ it('broadcasts real signed audit blocks between two servers without echoing', as
         `PORT=${port}`, `NODE_ID=node-${index}`, `PEER_URL=http://127.0.0.1:${ports[1 - index]}`,
         `DB_PATH=${join(directory, 'journal.db').replaceAll('\\', '/')}`,
         'JWT_SECRET=broadcast-test-only',
+        'PEER_SECRET=broadcast-peer-test-only',
       ].join('\n'));
       const child = spawn(process.execPath, [
         fileURLToPath(new URL('./index.js', import.meta.url)), '--env', env,

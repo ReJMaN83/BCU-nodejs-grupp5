@@ -5,6 +5,20 @@ import Login from './pages/Login';
 import PatientSearch from './pages/PatientSearch';
 import PatientView from './pages/PatientView';
 import AccessDenied from './pages/AccessDenied';
+import Journal from './pages/Journal';
+
+
+// Route protection (issue #38): ProtectedRoute below redirects unauthenticated
+// users to /login and users with the wrong role to /access-denied.
+//
+// Manually verified:
+// - Direct URL navigation to /patients, /patients/:id, /journal while logged
+//   out redirects to /login.
+// - Logged in with the wrong role (e.g. patient navigating to /patients)
+//   redirects to /access-denied.
+// - Browser back/forward navigation after logout correctly re-evaluates auth
+//   state on each render; AccessDenied.jsx shows its "please sign in" variant
+//   when the user is no longer authenticated.
 
 function ProtectedRoute({ children, roles }) {
   const { user, loading } = useAuth();
@@ -25,7 +39,7 @@ function AppRoutes() {
       <Route
         path="/patients"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['doctor', 'nurse', 'clinic']}>
             <PatientSearch />
           </ProtectedRoute>
         }
@@ -36,8 +50,16 @@ function AppRoutes() {
       <Route
         path="/patients/:id"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['doctor', 'nurse', 'clinic']}>
             <PatientView />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/journal"
+        element={
+          <ProtectedRoute roles={['patient']}>
+            <Journal />
           </ProtectedRoute>
         }
       />
