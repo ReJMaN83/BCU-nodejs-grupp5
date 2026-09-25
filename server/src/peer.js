@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { Server } from 'socket.io';
 import { io } from 'socket.io-client';
 
@@ -12,6 +13,14 @@ function validHello(message) {
   }
 }
 
+// Hashing first gives equal-length buffers, so the comparison takes the same
+// time whatever the length of the supplied secret.
+function sameSecret(given, expected) {
+  if (typeof given !== 'string' || typeof expected !== 'string' || !expected) return false;
+  const digest = (value) => createHash('sha256').update(value).digest();
+  return timingSafeEqual(digest(given), digest(expected));
+}
+
 // Each node both accepts connections and connects to its configured peer.
 export function createPeer(httpServer, {
   nodeId, peerUrl, url, getChainLength, receiveBlock, getChain, receiveChain,
@@ -23,7 +32,8 @@ export function createPeer(httpServer, {
   attachClients?.(socketServer.of('/'));
   const peerNamespace = socketServer.of('/peers');
   peerNamespace.use((socket, next) => {
-    if (peerSecret && socket.handshake.auth?.peerSecret !== peerSecret) {
+    // Without PEER_SECRET no peer is accepted, instead of every peer.
+    if (!sameSecret(socket.handshake.auth?.peerSecret, peerSecret)) {
       return next(new Error('Peer authentication required'));
     }
     next();
@@ -140,7 +150,8 @@ export function createPeer(httpServer, {
   let closing;
   return {
     broadcastNote(message) {
-      if (!peerSecret) throw new Error('PEER_SECRET is required for live note forwarding');
+      // Local clients are served by note-events; without a secret there are no peers.
+      if (!peerSecret) return;
       if (message.originNodeId !== nodeId) throw new Error('Only local notes may be broadcast');
       const sent = new Set();
       for (const [socket, remoteNodeId] of connections) {

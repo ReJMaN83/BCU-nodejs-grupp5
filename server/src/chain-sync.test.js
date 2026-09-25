@@ -43,6 +43,7 @@ async function connect(local, remoteUrl) {
     getChainLength: () => local.chain.chain.length,
     getChain: () => structuredClone(local.chain.chain),
     receiveBlock: local.replicas.receive, receiveChain: local.replicas.receiveChain, logger,
+    peerSecret: 'peer-test-secret',
   });
   running.push(peer);
   return { peer, url, logger };

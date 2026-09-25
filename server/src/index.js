@@ -40,7 +40,8 @@ const peer = createPeer(server, {
   receiveNote: notes.receive,
 });
 notes.setBroadcaster(peer.broadcastNote);
-if (config.peerSecret) setNotePublisher(notes.publish);
+// Own clients get note:created even without peers; broadcastNote skips peers then.
+setNotePublisher(notes.publish);
 setBlockBroadcaster(peer.broadcastBlock);
 setPeerChainReader(peerChains.getChains);
 
