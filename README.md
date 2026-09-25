@@ -1,5 +1,8 @@
 # BCU-nodejs-grupp5
 
+For a step-by-step two-node setup, architecture diagram and demo limitations,
+see [Two-node demo and architecture](docs/p2p-architecture.md) (#53).
+
 ## Starta servrarna
 
 Servern ligger i `server/` (Express, ES modules). Varje instans läser `PORT`,
