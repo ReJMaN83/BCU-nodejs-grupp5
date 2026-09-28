@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../api/client';
-import { mockPatientDetails } from '../api/mockPatientDetails';
 import { socket } from '../api/socket';
+import { mockPatientDetails } from '../api/mockPatientDetails';
 import './PatientView.css';
 
 const VISIBILITY_LABELS = {
@@ -20,6 +20,8 @@ const ROLE_LABELS = {
   unauthorized: 'Unauthorized',
 };
 
+const STAFF_ROLES = ['doctor', 'nurse', 'clinic'];
+
 function formatTimestamp(isoString) {
   const date = new Date(isoString);
   return date.toLocaleString('en-US', {
@@ -32,18 +34,12 @@ function formatTimestamp(isoString) {
 }
 
 // Determines whether a note is visible to the current user's role.
-// TODO (backend integration): this filtering should ultimately happen
-// server-side too, so the client never even receives notes it's not
-// allowed to see.
+// The server already filters notes by visibility; this is a second line of defense.
+// TODO: private notes should also be checked against the note's author, not just the role.
 function isNoteVisible(note, role) {
   if (note.visibility === 'everyone') return true;
-  if (note.visibility === 'staff') {
-    return ['doctor', 'nurse', 'clinic'].includes(role);
-  }
-  if (note.visibility === 'private') {
-    // In the real implementation this should also check that the
-    // current user is the note's author, not just their role.
-    return ['doctor', 'nurse', 'clinic'].includes(role);
+  if (note.visibility === 'staff' || note.visibility === 'private') {
+    return STAFF_ROLES.includes(role);
   }
   return false;
 }
@@ -51,6 +47,7 @@ function isNoteVisible(note, role) {
 export default function PatientView({ patientIdOverride }) {
   const { id: idFromUrl } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const id = patientIdOverride || idFromUrl;
 
   const [noteText, setNoteText] = useState('');
@@ -63,50 +60,61 @@ export default function PatientView({ patientIdOverride }) {
 
   const [accessLog, setAccessLog] = useState(mockPatientDetails[id]?.accessLog || []);
 
+  // Fetch the access log; fall back to mock data if the backend isn't reachable
   useEffect(() => {
     if (!id) return;
 
     api.get(`/api/patients/${id}/access-log`)
       .then(setAccessLog)
       .catch(() => {
-        // Backend not available yet — keep using the mocked access log.
         console.warn('Could not fetch access log, using mock data.');
       });
   }, [id]);
 
+  // Live updates: join the patient room and listen for new notes
   useEffect(() => {
-  if (!id) return;
+    if (!id) return;
 
-  socket.connect();
+    const joinRoom = () => {
+      // The server replies with { ok: true, patientId } or { ok: false, status }
+      socket.timeout(2000).emit('join-patient-room', id, (err, response) => {
+        if (err) {
+          console.warn('Timed out while joining the patient room.');
+          return;
+        }
+        if (!response.ok && response.status === 403) {
+          navigate('/access-denied', { replace: true });
+        } else if (!response.ok) {
+          console.warn('Could not join the patient room:', response.status);
+        }
+      });
+    };
 
-  // TODO: confirm the exact join-room event name/payload with the backend team.
-  // The contract states the client "joins the room patient:<id> when a patient
-  // view opens" but doesn't specify whether this happens automatically or via
-  // an explicit emit. Assuming an explicit emit for now:
-  socket.emit('join-patient-room', id);
+    const handleNoteCreated = (payload) => {
+      // payload = { originNodeId, note }
+      const newNote = payload.note;
 
-  const handleNoteCreated = (payload) => {
-    // payload = { originNodeId, note }
-    const newNote = payload.note;
+      if (String(newNote.patientId) !== String(id)) return; // safety check
 
-    if (String(newNote.patientId) !== String(id)) return; // safety check
+      setPatient((prev) => {
+        if (!prev) return prev;
+        // Avoid duplicates (e.g. a note this user just created themselves)
+        if (prev.notes.some((n) => n.id === newNote.id)) return prev;
+        return { ...prev, notes: [newNote, ...prev.notes] };
+      });
+    };
 
-    setPatient((prev) => {
-      if (!prev) return prev;
-      // Avoid duplicates if the note already exists (e.g. we sent it ourselves)
-      if (prev.notes.some((n) => n.id === newNote.id)) return prev;
-      return { ...prev, notes: [newNote, ...prev.notes] };
-    });
-  };
+    // Joining on 'connect' also re-joins the room after a reconnect
+    socket.on('connect', joinRoom);
+    socket.on('note:created', handleNoteCreated);
+    socket.connect();
 
-  socket.on('note:created', handleNoteCreated);
-
-  return () => {
-    socket.off('note:created', handleNoteCreated);
-    // TODO: confirm if/how the client should leave the room on unmount.
-    socket.disconnect();
-  };
-}, [id]);
+    return () => {
+      socket.off('connect', joinRoom);
+      socket.off('note:created', handleNoteCreated);
+      socket.disconnect();
+    };
+  }, [id, navigate]);
 
   if (!patient) {
     return (
@@ -132,12 +140,11 @@ export default function PatientView({ patientIdOverride }) {
         visibility,
       });
 
-      // Prepend the new note so it appears at the top of the list immediately,
-      // without needing to refetch the whole patient record.
-      setPatient((prev) => ({
-        ...prev,
-        notes: [newNote, ...prev.notes],
-      }));
+      // Prepend the new note so it appears immediately, without refetching
+      setPatient((prev) => {
+        if (prev.notes.some((n) => n.id === newNote.id)) return prev;
+        return { ...prev, notes: [newNote, ...prev.notes] };
+      });
 
       setNoteText('');
     } catch (err) {
