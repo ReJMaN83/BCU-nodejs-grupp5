@@ -129,6 +129,12 @@ export default function PatientView({ patientIdOverride }) {
   const role = user?.role || 'patient'; // fallback for local dev before auth is wired up
   const visibleNotes = patient.notes.filter((note) => isNoteVisible(note, role));
 
+  // Verification summary for the access log (issue #37).
+  // `verified` is computed by verifyChain() on the backend.
+  const failedCount = accessLog.filter((entry) => entry.verified === false).length;
+  const allVerified =
+    accessLog.length > 0 && accessLog.every((entry) => entry.verified === true);
+
   const handleSaveNote = async (e) => {
     e.preventDefault();
     setSaveError(null);
@@ -229,6 +235,19 @@ export default function PatientView({ patientIdOverride }) {
 
         <section className="section">
           <h2 className="section-title">Access log</h2>
+
+          {failedCount > 0 && (
+            <div className="verification-summary failed">
+              {failedCount} {failedCount === 1 ? 'entry' : 'entries'} failed
+              verification. The log may have been tampered with.
+            </div>
+          )}
+          {allVerified && (
+            <div className="verification-summary ok">
+              All entries verified against the blockchain.
+            </div>
+          )}
+
           {accessLog.map((entry) => (
             <div className="log-entry" key={entry.id}>
               <span className="log-who">
@@ -240,9 +259,20 @@ export default function PatientView({ patientIdOverride }) {
                 <span className="log-action">{entry.action}</span>
               </span>
               <span className="log-right">
-                {entry.verified && (
-                  <span className="verified-badge" title="Signature verified">
-                    ✓
+                {entry.verified === true && (
+                  <span
+                    className="verification-badge ok"
+                    title="Signature and chain verified"
+                  >
+                    ✓ Verified
+                  </span>
+                )}
+                {entry.verified === false && (
+                  <span
+                    className="verification-badge failed"
+                    title="Signature or chain could not be verified"
+                  >
+                    ✗ Not verified
                   </span>
                 )}
                 <span className="log-time">{formatTimestamp(entry.timestamp)}</span>
