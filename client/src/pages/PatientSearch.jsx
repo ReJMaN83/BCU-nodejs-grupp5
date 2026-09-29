@@ -1,20 +1,31 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mockPatients } from '../api/mockPatients';
+import { api } from '../api/client';
 import './PatientSearch.css';
 
 export default function PatientSearch() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
+  const [patients, setPatients] = useState([]);
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // TODO (backend integration): replace mockPatients with a fetched list
-  // from GET /api/patients, e.g. via useEffect + api.get('/api/patients').
-  const filteredPatients = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term) return mockPatients;
-    return mockPatients.filter((p) =>
-      p.fullName.toLowerCase().includes(term)
-    );
+  useEffect(() => {
+    setIsLoading(true);
+    setError(null);
+
+    const params = new URLSearchParams();
+    if (query.trim()) params.set('search', query.trim());
+
+    api.get(`/api/patients?${params.toString()}`)
+      .then((data) => {
+        setPatients(data);
+        setIsLoading(false);
+      })
+      .catch(() => {
+        setError('Could not load patients. Please try again.');
+        setIsLoading(false);
+      });
   }, [query]);
 
   const handleSelectPatient = (patientId) => {
@@ -38,22 +49,30 @@ export default function PatientSearch() {
           autoFocus
         />
 
-        <ul className="patient-list">
-          {filteredPatients.length === 0 && (
-            <li className="patient-list-empty">No patients found.</li>
-          )}
+        {error && <p className="search-error">{error}</p>}
 
-          {filteredPatients.map((patient) => (
-            <li
-              key={patient.id}
-              className="patient-item"
-              onClick={() => handleSelectPatient(patient.id)}
-            >
-              <div className="patient-item-name">{patient.fullName}</div>
-              <div className="patient-item-id">{patient.personalId}</div>
-            </li>
-          ))}
-        </ul>
+        {!error && !isLoading && patients.length === 0 && (
+          <ul className="patient-list">
+            <li className="patient-list-empty">No patients found.</li>
+          </ul>
+        )}
+
+        {!error && patients.length > 0 && (
+          <ul className="patient-list">
+            {patients.map((patient) => (
+              <li key={patient.id} className="patient-item">
+                <button
+                  type="button"
+                  className="patient-item-button"
+                  onClick={() => handleSelectPatient(patient.id)}
+                >
+                  <div className="patient-item-name">{patient.fullName}</div>
+                  <div className="patient-item-id">{patient.personalId}</div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
