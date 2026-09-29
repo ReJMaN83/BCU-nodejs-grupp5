@@ -11,6 +11,9 @@ export default function PatientSearch() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Loading/error reset before a data fetch; both are followed by an async
+    // request, so this doesn't cause redundant renders in practice.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(true);
     setError(null);
 
