@@ -59,15 +59,19 @@ export default function PatientView({ patientIdOverride }) {
   const [patient, setPatient] = useState(mockPatientDetails[id]);
 
   const [accessLog, setAccessLog] = useState(mockPatientDetails[id]?.accessLog || []);
+  const [accessLogError, setAccessLogError] = useState(false);
 
   // Fetch the access log; fall back to mock data if the backend isn't reachable
   useEffect(() => {
     if (!id) return;
 
     api.get(`/api/patients/${id}/access-log`)
-      .then(setAccessLog)
+      .then((data) => {
+        setAccessLog(data);
+        setAccessLogError(false);
+      })
       .catch(() => {
-        console.warn('Could not fetch access log, using mock data.');
+        setAccessLogError(true);
       });
   }, [id]);
 
@@ -236,6 +240,12 @@ export default function PatientView({ patientIdOverride }) {
         <section className="section">
           <h2 className="section-title">Access log</h2>
 
+          {accessLogError && (
+            <p className="access-log-notice">
+              Showing cached access log data — could not reach the server.
+            </p>
+          )}
+
           {failedCount > 0 && (
             <div className="verification-summary failed">
               {failedCount} {failedCount === 1 ? 'entry' : 'entries'} failed
@@ -246,6 +256,10 @@ export default function PatientView({ patientIdOverride }) {
             <div className="verification-summary ok">
               All entries verified against the blockchain.
             </div>
+          )}
+
+          {!accessLogError && accessLog.length === 0 && (
+            <p className="notes-empty">No access log entries yet.</p>
           )}
 
           {accessLog.map((entry) => (

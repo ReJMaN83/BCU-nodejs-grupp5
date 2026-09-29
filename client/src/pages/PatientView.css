@@ -299,3 +299,9 @@
   border: 1px solid #7a2a3d;
   color: #f5a3b5;
 }
+
+.access-log-notice {
+  color: #8ba3bd;
+  font-size: 13px;
+  margin: 0 0 16px;
+}
