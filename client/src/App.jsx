@@ -46,8 +46,10 @@ function AppRoutes() {
         }
       />
 
-      {/* :id = patient id. The backend must ALWAYS verify that the logged-in
-          user is actually allowed to view this specific patient — see note below. */}
+     {/* :id = patient id. The backend always verifies that the logged-in user
+    is actually allowed to view this specific patient (requirePatientAccess
+    in server/src/routes/patients.js), so a manipulated URL never leaks
+    another patient's data even if the client-side check were bypassed. */}
       <Route
         path="/patients/:id"
         element={
