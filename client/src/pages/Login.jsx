@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { ApiError } from '../api/client';
 import './Login.css';
 
 export default function Login() {
@@ -16,19 +17,24 @@ export default function Login() {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
- try {
-    const loggedInUser = await login({ username, password });
-    if (loggedInUser.role === 'patient') {
-      navigate('/journal');
-    } else {
-      navigate('/patients');
+
+    try {
+      const loggedInUser = await login({ username, password });
+      if (loggedInUser.role === 'patient') {
+        navigate('/journal');
+      } else {
+        navigate('/patients');
+      }
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 400)) {
+        setError('Incorrect username or password.');
+      } else {
+        setError('Something went wrong. Please try again.');
+      }
+    } finally {
+      setIsSubmitting(false);
     }
-  } catch (err) {
-    setError(err.message || 'Login failed. Please check your credentials.');
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  };
 
   return (
     <div className="login-page">
