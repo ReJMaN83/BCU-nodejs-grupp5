@@ -7,5 +7,4 @@ const BASE_URL = import.meta.env.VITE_API_URL;
 export const socket = io(BASE_URL, {
   withCredentials: true,
   autoConnect: false, // we connect manually when a patient view mounts
-  reconnectionAttempts: 5, // avoid flooding the console while backend isn't running yet
 });
