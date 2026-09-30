@@ -3,7 +3,6 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../api/client';
 import { socket } from '../api/socket';
-import { mockPatientDetails } from '../api/mockPatientDetails';
 import './PatientView.css';
 
 const VISIBILITY_LABELS = {
@@ -24,7 +23,7 @@ const STAFF_ROLES = ['doctor', 'nurse', 'clinic'];
 
 function formatTimestamp(isoString) {
   const date = new Date(isoString);
-  return date.toLocaleString('en-US', {
+  return date.toLocaleString('sv-SE', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -33,14 +32,13 @@ function formatTimestamp(isoString) {
   });
 }
 
-// Determines whether a note is visible to the current user's role.
-// The server already filters notes by visibility; this is a second line of defense.
-// TODO: private notes should also be checked against the note's author, not just the role.
-function isNoteVisible(note, role) {
+// Determines whether a note is visible to the current user.
+// The server already filters notes this way; this is a second line of defense
+// so the UI never renders something the user shouldn't see, even briefly.
+function isNoteVisible(note, user) {
   if (note.visibility === 'everyone') return true;
-  if (note.visibility === 'staff' || note.visibility === 'private') {
-    return STAFF_ROLES.includes(role);
-  }
+  if (note.visibility === 'staff') return STAFF_ROLES.includes(user.role);
+  if (note.visibility === 'private') return note.authorId === user.id;
   return false;
 }
 
@@ -55,13 +53,33 @@ export default function PatientView({ patientIdOverride }) {
   const [saveError, setSaveError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // TODO (backend integration): replace with api.get(`/api/patients/${id}`)
-  const [patient, setPatient] = useState(mockPatientDetails[id]);
+  const [patient, setPatient] = useState(null);
+  const [patientError, setPatientError] = useState(null);
 
-  const [accessLog, setAccessLog] = useState(mockPatientDetails[id]?.accessLog || []);
+  const [accessLog, setAccessLog] = useState([]);
   const [accessLogError, setAccessLogError] = useState(false);
 
-  // Fetch the access log; fall back to mock data if the backend isn't reachable
+  // Fetch the patient record + their notes (server filters notes by visibility)
+  useEffect(() => {
+    if (!id) return;
+
+    api.get(`/api/patients/${id}`)
+      .then((data) => {
+        setPatient(data);
+        setPatientError(null);
+      })
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 403) {
+          navigate('/access-denied', { replace: true });
+        } else if (err instanceof ApiError && err.status === 404) {
+          setPatientError('Patient not found.');
+        } else {
+          setPatientError('Could not load patient data. Please try again.');
+        }
+      });
+  }, [id, navigate]);
+
+  // Fetch the access log; show a notice (not a crash) if it can't be reached
   useEffect(() => {
     if (!id) return;
 
@@ -120,18 +138,29 @@ export default function PatientView({ patientIdOverride }) {
     };
   }, [id, navigate]);
 
-  if (!patient) {
+  if (patientError) {
     return (
       <div className="patient-page">
         <div className="patient-container">
-          <p className="not-found">Patient not found.</p>
+          <p className="not-found">{patientError}</p>
         </div>
       </div>
     );
   }
 
-  const role = user?.role || 'patient'; // fallback for local dev before auth is wired up
-  const visibleNotes = patient.notes.filter((note) => isNoteVisible(note, role));
+  if (!patient) {
+    return (
+      <div className="patient-page">
+        <div className="patient-container">
+          <p className="not-found">Loading patient data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const role = user?.role || 'patient';
+  const canWriteNotes = STAFF_ROLES.includes(role);
+  const visibleNotes = patient.notes.filter((note) => isNoteVisible(note, user));
 
   // Verification summary for the access log (issue #37).
   // `verified` is computed by verifyChain() on the backend.
@@ -150,7 +179,6 @@ export default function PatientView({ patientIdOverride }) {
         visibility,
       });
 
-      // Prepend the new note so it appears immediately, without refetching
       setPatient((prev) => {
         if (prev.notes.some((n) => n.id === newNote.id)) return prev;
         return { ...prev, notes: [newNote, ...prev.notes] };
@@ -208,41 +236,43 @@ export default function PatientView({ patientIdOverride }) {
           ))}
         </section>
 
-        <section className="section">
-          <h2 className="section-title">Add a note</h2>
-          <form className="add-note-form" onSubmit={handleSaveNote}>
-            {saveError && <div className="add-note-error">{saveError}</div>}
+        {canWriteNotes && (
+          <section className="section">
+            <h2 className="section-title">Add a note</h2>
+            <form className="add-note-form" onSubmit={handleSaveNote}>
+              {saveError && <div className="add-note-error">{saveError}</div>}
 
-            <textarea
-              className="add-note-textarea"
-              placeholder="Write a note..."
-              value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              required
-            />
-            <div className="add-note-controls">
-              <select
-                className="visibility-select"
-                value={visibility}
-                onChange={(e) => setVisibility(e.target.value)}
-              >
-                <option value="private">Visible to: Only me</option>
-                <option value="staff">Visible to: Medical staff</option>
-                <option value="everyone">Visible to: Everyone</option>
-              </select>
-              <button type="submit" className="save-note-button" disabled={isSaving}>
-                {isSaving ? 'Saving...' : 'Save note'}
-              </button>
-            </div>
-          </form>
-        </section>
+              <textarea
+                className="add-note-textarea"
+                placeholder="Write a note..."
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                required
+              />
+              <div className="add-note-controls">
+                <select
+                  className="visibility-select"
+                  value={visibility}
+                  onChange={(e) => setVisibility(e.target.value)}
+                >
+                  <option value="private">Visible to: Only me</option>
+                  <option value="staff">Visible to: Medical staff</option>
+                  <option value="everyone">Visible to: Everyone</option>
+                </select>
+                <button type="submit" className="save-note-button" disabled={isSaving}>
+                  {isSaving ? 'Saving...' : 'Save note'}
+                </button>
+              </div>
+            </form>
+          </section>
+        )}
 
         <section className="section">
           <h2 className="section-title">Access log</h2>
 
           {accessLogError && (
             <p className="access-log-notice">
-              Showing cached access log data — could not reach the server.
+              Could not load the access log. Please try again later.
             </p>
           )}
 
