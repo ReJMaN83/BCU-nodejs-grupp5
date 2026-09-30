@@ -11,24 +11,24 @@ export default function PatientSearch() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Loading/error reset before a data fetch; both are followed by an async
-    // request, so this doesn't cause redundant renders in practice.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsLoading(true);
-    setError(null);
+    let active = true;
 
     const params = new URLSearchParams();
     if (query.trim()) params.set('search', query.trim());
 
     api.get(`/api/patients?${params.toString()}`)
       .then((data) => {
+        if (!active) return;
         setPatients(data);
         setIsLoading(false);
       })
       .catch(() => {
+        if (!active) return;
         setError('Could not load patients. Please try again.');
         setIsLoading(false);
       });
+
+    return () => { active = false; };
   }, [query]);
 
   const handleSelectPatient = (patientId) => {
@@ -48,11 +48,17 @@ export default function PatientSearch() {
           className="search-input"
           placeholder="Search by patient name..."
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setIsLoading(true);
+            setError(null);
+            setQuery(e.target.value);
+          }}
           autoFocus
         />
 
         {error && <p className="search-error">{error}</p>}
+
+        {isLoading && <p className="patient-list-empty" role="status">Loading patients...</p>}
 
         {!error && !isLoading && patients.length === 0 && (
           <ul className="patient-list">
@@ -60,7 +66,7 @@ export default function PatientSearch() {
           </ul>
         )}
 
-        {!error && patients.length > 0 && (
+        {!error && !isLoading && patients.length > 0 && (
           <ul className="patient-list">
             {patients.map((patient) => (
               <li key={patient.id} className="patient-item">
