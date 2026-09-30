@@ -1,17 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import { ApiError } from '../api/client';
 import './Login.css';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { user, loading, login } = useAuth();
   const navigate = useNavigate();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Already logged in — skip the form and go straight to the right page.
+  useEffect(() => {
+    if (loading || !user) return;
+    navigate(user.role === 'patient' ? '/journal' : '/patients', { replace: true });
+  }, [user, loading, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,6 +41,12 @@ export default function Login() {
       setIsSubmitting(false);
     }
   };
+
+  // Avoid flashing the login form while we're still checking for an
+  // existing session, or right before the redirect above kicks in.
+  if (loading || user) {
+    return null;
+  }
 
   return (
     <div className="login-page">
