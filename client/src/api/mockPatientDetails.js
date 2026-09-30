@@ -62,6 +62,16 @@ export const mockPatientDetails = {
     verified: true,
   },
   {
+  id: 'node-3002-16',
+  userId: 3,
+  name: 'Unknown User',
+  role: 'unauthorized',
+  action: 'read',
+  timestamp: '2026-09-19T08:00:00.000Z',
+  nodeId: 'node-3002',
+  verified: false,
+},
+  {
     id: 'node-3002-15',
     userId: 4,
     name: 'Anna Karlsson',
