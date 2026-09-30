@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { accessLogFor, auditLogger } from '../audit-logger.js';
+import { accessLogFor, recordAccess } from '../audit-logger.js';
 import { db } from '../db.js';
 import { publishCreatedNote } from '../notes-live.js';
 import { requireAuth, requireRole, STAFF_ROLES } from '../middleware.js';
@@ -47,6 +47,8 @@ const insertNote = db.prepare(`
   VALUES (@patientId, @authorId, @text, @visibility)
 `);
 
+const deleteNote = db.prepare('DELETE FROM notes WHERE id = ?');
+
 const VISIBILITIES = ['private', 'staff', 'everyone'];
 
 // Allt under /api/patients kräver inloggning. Rollen unauthorized får 403 överallt,
@@ -68,6 +70,22 @@ function requirePatientAccess(req, res, next) {
   return next();
 }
 
+// Fail-closed: åtkomsten loggas (signerat block + access_logs-rad) innan något
+// skickas. Går loggningen inte att skriva svarar routen 503 och lämnar ingen data ut.
+async function logAccess(req, action) {
+  try {
+    await recordAccess({ user: req.user, patientId: req.patientId, action });
+    return true;
+  } catch (err) {
+    console.error(`[audit] could not log ${action} for patient ${req.patientId}:`, err);
+    return false;
+  }
+}
+
+function auditFailed(res) {
+  return res.status(503).json({ message: 'Access could not be logged' });
+}
+
 function notesFor(patientId, user) {
   return selectNotes.all({
     patientId,
@@ -82,10 +100,12 @@ patientsRouter.get('/', requireRole(...STAFF_ROLES), (req, res) => {
   res.json(searchPatients.all(search, search, search));
 });
 
-// Varje lyckad läsning blir ett signerat read-block i nodens egen kedja.
-patientsRouter.get('/:id', requirePatientAccess, auditLogger('read'), (req, res) => {
+// Varje lyckad läsning blir ett signerat read-block i nodens egen kedja, och
+// blocket skrivs innan journalen skickas.
+patientsRouter.get('/:id', requirePatientAccess, async (req, res) => {
   const patient = selectPatient.get(req.patientId);
   if (!patient) return res.status(404).json({ message: 'Patient not found' });
+  if (!await logAccess(req, 'read')) return auditFailed(res);
 
   res.json({ ...patient, notes: notesFor(req.patientId, req.user) });
 });
@@ -104,8 +124,7 @@ patientsRouter.post(
   '/:id/notes',
   requireRole(...STAFF_ROLES),
   requirePatientAccess,
-  auditLogger('write'),
-  (req, res) => {
+  async (req, res) => {
     if (!selectPatient.get(req.patientId)) {
       return res.status(404).json({ message: 'Patient not found' });
     }
@@ -126,9 +145,16 @@ patientsRouter.post(
     });
     const note = selectNote.get(lastInsertRowid);
 
-    // note:created skickas när svaret gått iväg. auditLogger registrerade sin
-    // finish-lyssnare först, så write-blocket finns redan. Live-leveransen är
-    // best effort: anteckningen är sparad, så ett fel här får aldrig ge 500.
+    // Write-blocket måste finnas innan anteckningen räknas som skapad. Misslyckas
+    // loggningen tas anteckningen bort igen och publiceras aldrig live.
+    if (!await logAccess(req, 'write')) {
+      deleteNote.run(note.id);
+      return auditFailed(res);
+    }
+
+    // Hit kommer vi bara när write-blocket är skrivet. note:created skickas när
+    // svaret gått iväg. Live-leveransen är best effort: anteckningen och blocket
+    // är sparade, så ett fel här får aldrig ge 500.
     res.on('finish', () => {
       try {
         publishCreatedNote(note.id);
