@@ -12,7 +12,8 @@ export default function Journal() {
     return (
       <div className="patient-page">
         <div className="patient-container">
-          <p className="not-found">No linked patient record found for this account.</p>
+          <p className="not-found">No patient record is linked to this account. Please contact
+            your care provider if you believe this is a mistake.</p>
         </div>
       </div>
     );
