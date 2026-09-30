@@ -52,26 +52,6 @@ export function recordAccess({ user, patientId, action }) {
   return block;
 }
 
-// Middleware som loggar en lyckad journalåtkomst. Loggen skrivs först när
-// svaret gått iväg med 2xx (200 för read, 201 för write), så nekade anrop
-// (401/403), felaktiga (400) och okända patienter (404) inte hamnar i kedjan.
-export function auditLogger(action) {
-  return (req, res, next) => {
-    res.on('finish', () => {
-      if (res.statusCode < 200 || res.statusCode >= 300) return;
-
-      try {
-        recordAccess({ user: req.user, patientId: req.patientId, action });
-      } catch (err) {
-        // Svaret är redan skickat. Logga tydligt i stället för att krascha.
-        console.error(`[audit] could not log ${action} for patient ${req.patientId}:`, err.message);
-      }
-    });
-
-    next();
-  };
-}
-
 // Accessloggen byggs av kedjan, filtrerad på patient och sorterad nyaste först
 // (docs/kontrakt.md, beslut d). Varje nods kedja förblir separat.
 export function accessLogFor(patientId) {
