@@ -139,6 +139,7 @@ Gemensamt för alla anrop:
 | `401` | Inte inloggad, eller fel inloggningsuppgifter | Visar login |
 | `403` | Inloggad men saknar behörighet | Visar access denied |
 | `404` | Finns inte | Visar "hittades inte" |
+| `503` | Åtkomsten kunde inte loggas i kedjan, ingen journaldata skickas och ingen anteckning sparas | Visar `message` |
 
 ### Auth
 
