@@ -1,4 +1,4 @@
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import PatientView from './PatientView';
 
 // Used for the /journal route: patients are routed here directly after

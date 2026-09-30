@@ -1,16 +1,64 @@
-# React + Vite
+# Frontend – BCU-nodejs-grupp5
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite-klient för journalsystemet. Se projektets [huvud-README](../README.md)
+för hur backend startas och för P2P-arkitekturen.
 
-Currently, two official plugins are available:
+## Installation
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+cd client
+npm install
+```
 
-## React Compiler
+## Miljövariabler
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Kopiera `.env.example` till `.env`:
 
-## Expanding the ESLint configuration
+```bash
+cp .env.example .env
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+`.env` ska innehålla:
+VITE_API_URL=http://localhost:3001
+
+
+Sätt den till den servern du vill prata med (t.ex. `http://localhost:3002` om du testar
+mot den andra noden). Saknas `.env` helt faller klienten tillbaka på
+`http://localhost:3001` automatiskt.
+
+## Starta
+
+Se till att backend körs först (se huvud-README, `server/`), kör sedan:
+
+```bash
+npm run dev
+```
+
+Klienten startar på `http://localhost:5173`.
+
+## Testkonton
+
+Seedade användare (lösenord `demo1234` för alla):
+
+| Användarnamn | Roll |
+|---|---|
+| `doctor1` | Läkare |
+| `nurse1` | Sjuksköterska |
+| `clinic1` | Vårdcentral |
+| `patient1` | Patient |
+| `unauthorized1` | Obehörig |
+
+## Lint
+
+```bash
+npm run lint
+```
+
+## Struktur
+src/
+├── api/ API-klient (client.js) och socket.io-anslutning (socket.js)
+├── context/ AuthContext (inloggad användare, delad state)
+├── pages/ En fil per sida/route
+└── App.jsx Routing och rollskydd (ProtectedRoute)
+
+EOF

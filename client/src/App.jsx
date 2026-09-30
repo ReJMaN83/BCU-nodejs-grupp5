@@ -1,6 +1,7 @@
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
+import { useAuth } from './context/useAuth';
 import Login from './pages/Login';
 import PatientSearch from './pages/PatientSearch';
 import PatientView from './pages/PatientView';
@@ -45,8 +46,10 @@ function AppRoutes() {
         }
       />
 
-      {/* :id = patient id. The backend must ALWAYS verify that the logged-in
-          user is actually allowed to view this specific patient — see note below. */}
+     {/* :id = patient id. The backend always verifies that the logged-in user
+    is actually allowed to view this specific patient (requirePatientAccess
+    in server/src/routes/patients.js), so a manipulated URL never leaks
+    another patient's data even if the client-side check were bypassed. */}
       <Route
         path="/patients/:id"
         element={
