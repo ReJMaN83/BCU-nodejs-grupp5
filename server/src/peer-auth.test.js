@@ -27,7 +27,7 @@ async function start({ peerSecret, attachClients } = {}) {
     nodeId: 'node-a', url, getChainLength: () => 1, logger, peerSecret, attachClients,
   });
   peers.push(peer);
-  return { peer, url, logger };
+  return { peer, url };
 }
 
 // Ansluter till /peers och svarar med 'connected' eller felmeddelandet.

@@ -28,21 +28,17 @@ the socket section of [the data contract](kontrakt.md).
 
 ## Safe local setup (Windows PowerShell)
 
-Use two server processes on one computer with one shared SQLite file. Do not
-delete an existing database, keys or chain files. A new `DB_PATH` creates an
-independent demo using the current English seed accounts.
+Use two server processes on one computer with one shared SQLite file,
+`../data/journal.db` as in the README. Do not delete an existing database, keys or
+chain files. A new `DB_PATH` in both env files gives an independent demo.
 
 From the repository root, install locked dependencies:
 
 ```powershell
-npm ci --prefix server --ignore-scripts
+npm ci --prefix server
 npm ci --prefix client
 npm test --prefix server
 ```
-
-The `--ignore-scripts` option is the verified workaround for this Windows
-installation's unnecessary better-sqlite3 build step. It uses the bundled binary;
-the tests must pass before proceeding. It is not a global npm setting.
 
 Create `.env.3001` and `.env.3002` in `server/` from `.env.example` if they do not
 already exist. Compare before editing an existing file. Set these values:
@@ -53,7 +49,7 @@ already exist. Compare before editing an existing file. Set these values:
 | `NODE_ID` | `node-3001` | `node-3002` |
 | `NODE_URL` | `http://localhost:3001` | `http://localhost:3002` |
 | `PEER_URL` | `http://localhost:3002` | `http://localhost:3001` |
-| `DB_PATH` | `../data/demo-v39.db` (choose a new path) | Same exact path |
+| `DB_PATH` | `../data/journal.db` | Same exact path |
 | `JWT_SECRET` | New local random secret | Same secret |
 | `CLIENT_ORIGIN` | `http://localhost:5173` | `http://localhost:5174` |
 | `PEER_SECRET` | New local random secret | Same secret |
@@ -76,7 +72,7 @@ Both should report `ok: true`, the correct node ID and five seeded patients for 
 new database. Wait for `peer:hello` and successful chain responses. Initial retry
 messages while the other server is not running are expected.
 
-## Two frontend instances (when API integration is ready)
+## Two frontend instances
 
 Run each command in its own PowerShell terminal from the repository root:
 
@@ -91,9 +87,7 @@ npm run dev --prefix client -- --port 5174 --strictPort
 ```
 
 Use separate browser profiles/private sessions for different roles: cookies on
-localhost are shared across ports. Search and patient details still use mock
-data until #64. The access log, note form and live updates call the real API and
-socket, so real notes and live events are shown through the API until then.
+localhost are shared across ports.
 
 ## Demo order and checks
 
