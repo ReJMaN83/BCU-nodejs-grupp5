@@ -1,0 +1,29 @@
+.app-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+  max-width: 720px;
+  margin: 0 auto 16px;
+  padding: 0 4px;
+}
+
+.app-header-user {
+  color: #8ba3bd;
+  font-size: 13px;
+}
+
+.app-header-logout {
+  background: transparent;
+  border: 1px solid #274a6d;
+  color: #c5d5e5;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.app-header-logout:hover {
+  border-color: #3b82c4;
+  color: #f0f4f8;
+}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
+import AppHeader from '../components/AppHeader';
 import './PatientSearch.css';
 
 export default function PatientSearch() {
@@ -38,6 +39,8 @@ export default function PatientSearch() {
   return (
     <div className="search-page">
       <div className="search-container">
+        <AppHeader />
+
         <div className="search-header">
           <h1 className="search-title">Patient Search</h1>
           <p className="search-subtitle">Search for a patient by name</p>
