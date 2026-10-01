@@ -55,6 +55,7 @@ eller `everyone` (personal och patienten själv). Hela matrisen finns i
 | Journal som patient | ![Journal som patient](docs/screenshots/patient-view-patient1.png) |
 | Journal som personal, med formuläret Add a note | ![Journal som personal](docs/screenshots/patient-view-patient2.png) |
 | Åtkomst nekad | ![Åtkomst nekad](docs/screenshots/access-denied.png) |
+| Live-anteckning från server 1 visas på server 2 | ![Live-anteckning](docs/screenshots/06-live-note-on-server-2.jpg) |
 
 ## Kom igång
 
@@ -372,6 +373,7 @@ säkerhetskopieras och tas bort tillsammans.
 - Verification badge, styling, felhantering och tomma tillstånd
 - Byte från mockdata till riktigt API för sökning och journal, rensning av Vite-mallen, redirect från `/login` (#64)
 - Mötesanteckningar för vecka 39 (21/9)
+- Granskade och godkände PRs
 
 ### Aamod
 
@@ -382,6 +384,7 @@ säkerhetskopieras och tas bort tillsammans.
 - Serverdelen för live-anteckningar (`note:created` till behöriga klienter)
 - Integrationstest för samtidiga loggar och omstarter
 - Guide för två servrar och arkitekturskiss
+- Mötesanteckningar 25/9
 
 ## Teknisk referens
 
