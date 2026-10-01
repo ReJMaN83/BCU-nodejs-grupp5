@@ -33,6 +33,9 @@ function formatTimestamp(isoString) {
   });
 }
 
+// Determines whether a note is visible to the current user.
+// The server already filters notes this way; this is a second line of defense
+// so the UI never renders something the user shouldn't see, even briefly.
 function isNoteVisible(note, user) {
   if (note.visibility === 'everyone') return true;
   if (note.visibility === 'staff') return STAFF_ROLES.includes(user.role);
