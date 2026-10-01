@@ -1,42 +1,343 @@
 # BCU-nodejs-grupp5
 
-For a step-by-step two-node setup, architecture diagram and demo limitations,
-see [Two-node demo and architecture](docs/p2p-architecture.md) (#53).
+Ett journalsystem där varje läsning och ändring av en journal loggas i en signerad
+blockkedja, så att patienten själv kan se vem som har läst journalen.
 
-## Starta servrarna
+## Om projektet
 
-Servern ligger i `server/` (Express, ES modules). Varje instans läser `PORT`,
-`NODE_ID`, `PEER_URL`, `CLIENT_ORIGIN`, `DB_PATH` och `JWT_SECRET` från en env-fil. Mallen är
-`server/.env.example`.
+### Problemet
+
+Enligt GDPR har en patient rätt att veta vem som har tagit del av uppgifterna i
+journalen. En vanlig loggtabell i databasen går att ändra i efterhand av den som har
+åtkomst till databasen, och då går det inte att lita på loggen.
+
+### Lösningen
+
+- **Journaldata i SQL.** Patienter, användare och anteckningar ligger i en
+  SQLite-databas. Servern filtrerar anteckningar efter roll och synlighet innan
+  svaret skickas.
+- **Signerade åtkomstloggar i blockkedjan.** Varje lyckad journalläsning blir ett
+  `read`-block och varje ny anteckning ett `write`-block. Blocket innehåller vem
+  (`userId`, `role`), vilken patient (`patientId`), vad (`action`), när
+  (`timestamp`) och en Ed25519-signatur. Blocken är länkade med SHA-256-hashar, så
+  en ändring i ett gammalt block syns vid verifiering.
+- **P2P mellan två servrar.** Två serverinstanser skickar nya block till varandra
+  över Socket.IO och synkar varandras kedjor. Access-log-vyn visar block från båda
+  noderna.
+- **Live-anteckningar via socket.** En ny anteckning skickas som `note:created` till
+  inloggade klienter som har journalen öppen, på båda servrarna, och bara till de
+  som får se anteckningen.
+
+**Journalinnehåll lagras aldrig i kedjan.** Anteckningstext, namn och personnummer
+finns bara i SQL. Kedjan innehåller endast id:n, roll, åtgärd, tid och signatur
+(docs/kontrakt.md, beslut c).
+
+### Roller
+
+| Roll | Kan |
+|---|---|
+| `doctor`, `nurse`, `clinic` | Söka patienter, läsa alla journaler och access-loggar, skriva anteckningar |
+| `patient` | Läsa sin egen journal och access-logg, bara anteckningar med synlighet `everyone` |
+| `unauthorized` | Logga in, men nekas all journalåtkomst |
+
+Anteckningar har synligheten `private` (bara författaren), `staff` (all personal)
+eller `everyone` (personal och patienten själv). Hela matrisen finns i
+[docs/permissions.md](docs/permissions.md).
+
+## Skärmdumpar
+
+> **TODO:** Skärmdumparna tas efter onsdagens merge 30/9, när klienten är kopplad
+> till API:t. Bilderna läggs i `docs/screenshots/`.
+
+| Vy | Bild |
+|---|---|
+| Inloggning | ![Inloggning](docs/screenshots/login.png) |
+| Sökning (personal) | ![Sökning](docs/screenshots/search.png) |
+| Journal som läkare | ![Journal som läkare](docs/screenshots/patient-view-doctor.png) |
+| Journal som patient | ![Journal som patient](docs/screenshots/patient-view-patient.png) |
+| Åtkomst nekad | ![Åtkomst nekad](docs/screenshots/access-denied.png) |
+| Live-anteckning på server 2 | ![Live-anteckning](docs/screenshots/live-note.png) |
+
+## Kom igång
+
+### Krav
+
+- **Node.js 22 (minst 22.12) eller 24.** Kraven kommer från beroendena:
+  `better-sqlite3` kräver Node 22 eller senare, Vitest 5 kräver 22.12, 24 eller 26,
+  och Vite 8 kräver 20.19 eller 22.12. Projektet är testat med Node 24.
+- npm (följer med Node) och Git.
+
+### Installation
+
+Från repots rot:
 
 ```bash
 cd server
 npm install
+cd ../client
+npm install
 ```
 
-### Två servrar på samma dator
+Windows: om `npm install` eller `npm ci` försöker bygga better-sqlite3 och ger
+Python-fel har projektets låsta paket verifierats med `npm ci --ignore-scripts` i
+`server/`. Det använder den medföljande binären. Kör sedan `npm test` för att
+kontrollera installationen.
 
-Skapa en env-fil per instans från mallen:
+### Miljövariabler för servern
+
+Servern läser en env-fil. Mallen är `server/.env.example`. Vilken fil som läses styrs
+med `--env <fil>`, standard är `server/.env`.
+
+| Variabel | Används till | Standard |
+|---|---|---|
+| `PORT` | Porten servern lyssnar på. Obligatorisk. | – |
+| `NODE_ID` | Nodens id. Hamnar i varje block i nodens kedja. | `node-<PORT>` |
+| `NODE_URL` | Nodens egen adress i `peer:hello`. Valfri. | `http://localhost:<PORT>` |
+| `PEER_URL` | Adressen till den andra servern. | ingen peer |
+| `PEER_SECRET` | Delad hemlighet för `/peers`. Samma värde på båda servrarna. Utan den avvisas alla peers och ingen synk sker. | ingen |
+| `CLIENT_ORIGIN` | Klientens adress, för CORS med cookies. | `http://localhost:5173` |
+| `DB_PATH` | SQLite-filen, relativt `server/`. Samma fil för båda servrarna. | `../data/journal.db` |
+| `JWT_SECRET` | Hemlighet för inloggningscookien. Samma värde på båda servrarna. | ett utvecklingsvärde, med varning |
+
+`PEER_SECRET` och `JWT_SECRET` ska vara slumpade och får aldrig checkas in eller
+läggas i en `VITE_`-variabel. Ett värde kan skapas med:
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+```
+
+### Två servrar på samma dator (3001 och 3002)
+
+I `server/`, skapa en env-fil per instans från mallen:
 
 ```bash
 cp .env.example .env.3001
 cp .env.example .env.3002
 ```
 
-Ändra i `.env.3002` till:
+| Variabel | `.env.3001` | `.env.3002` |
+|---|---|---|
+| `PORT` | `3001` | `3002` |
+| `NODE_ID` | `node-3001` | `node-3002` |
+| `PEER_URL` | `http://localhost:3002` | `http://localhost:3001` |
+| `PEER_SECRET` | ett slumpat värde | samma värde |
+| `CLIENT_ORIGIN` | `http://localhost:5173` | `http://localhost:5174` |
+| `DB_PATH` | `../data/journal.db` | samma sökväg |
+| `JWT_SECRET` | ett slumpat värde | samma värde |
 
-```
-PORT=3002
-NODE_ID=node-3002
-PEER_URL=http://localhost:3001
-```
-
-Starta sedan i två terminaler:
+Starta sedan i två terminaler, från `server/`:
 
 ```bash
 npm run dev:3001
 npm run dev:3002
 ```
+
+`npm run dev:3001` kör `node --watch-path=src src/index.js --env .env.3001`.
+`npm start` startar en server med `.env` utan omstart vid ändringar.
+
+Kontrollera att båda lever:
+
+```bash
+curl http://localhost:3001/api/health   # {"ok":true,"port":3001,"nodeId":"node-3001","patients":5}
+curl http://localhost:3002/api/health   # {"ok":true,"port":3002,"nodeId":"node-3002","patients":5}
+```
+
+Båda terminalerna ska visa `peer:hello from` med den andra nodens id. Meddelanden om
+nya försök medan den andra servern inte är igång är väntade.
+
+En steg-för-steg-guide för PowerShell och demo-ordningen finns i
+[docs/p2p-architecture.md](docs/p2p-architecture.md).
+
+### Klienten
+
+Klienten ligger i `client/` (React + Vite). Den läser serverns adress från
+`VITE_API_URL`:
+
+```bash
+cd client
+cp .env.example .env     # VITE_API_URL=http://localhost:3001
+npm run dev              # http://localhost:5173
+```
+
+En andra klient mot server 2 startas i en egen terminal. Variabeln i skalet går före
+`.env`:
+
+```bash
+VITE_API_URL=http://localhost:3002 npm run dev -- --port 5174 --strictPort
+```
+
+I PowerShell: `$env:VITE_API_URL = 'http://localhost:3002'` och sedan
+`npm run dev -- --port 5174 --strictPort`.
+
+Cookies på `localhost` delas mellan portar, så använd olika webbläsarprofiler eller
+privata fönster för olika roller.
+
+### Seed-data och testkonton
+
+Databasen skapas automatiskt från `docs/database.sql` första gången en server startar
+och tabellerna saknas. Den innehåller fem patienter, tre anteckningar på patient 1
+(en per synlighet) och ett konto per roll. Lösenordet är `demo1234` för alla.
+
+| Användarnamn | Roll | Namn | Kopplad patient |
+|---|---|---|---|
+| `doctor1` | `doctor` | Dr. Lindberg | – |
+| `nurse1` | `nurse` | Nurse Åström | – |
+| `clinic1` | `clinic` | Vårdcentralen Centrum | – |
+| `patient1` | `patient` | Anna Karlsson | patient 1 |
+| `unauthorized1` | `unauthorized` | Obehörig Testsson | – |
+
+Access-loggar seedas inte, eftersom varje rad måste motsvara ett riktigt signerat
+block. För en ny demo räcker ett nytt `DB_PATH`. Byts seed-kontona ut måste den gamla
+databasen tas bort, tillsammans med `<dbFile>.keys/` och `<dbFile>.chains/`.
+
+### Tester
+
+```bash
+cd server
+npm test          # vitest run
+```
+
+Testerna använder temporära SQLite-filer, nyckelkataloger och env-filer, så
+`data/journal.db` påverkas inte. De täcker bland annat block, signering, verifiering
+och manipulering av kedjan, persistens och återställning över omstart, P2P-broadcast
+och kedjesynk, behörighetsmatrisen, `POST /api/patients/:id/notes` med synlighet och
+live-leverans av `note:created`, samt fail-closed-loggning.
+
+Klienten byggs med `cd client && npm run build`, och `npm run lint` kör ESLint.
+
+## Arkitektur
+
+```mermaid
+flowchart LR
+  C1[Klient 5173] -->|HTTP + cookie| S1[Server node-3001]
+  C2[Klient 5174] -->|HTTP + cookie| S2[Server node-3002]
+  S1 <-->|Socket.IO /peers: block, kedjesynk, anteckningar| S2
+  S1 --> DB[(Delad SQLite)]
+  S2 --> DB
+  S1 -.->|note:created| C1
+  S2 -.->|note:created| C2
+```
+
+### En kedja per nod
+
+Varje server skriver bara till sin egen kedja, och varje block bär nodens
+`nodeId`. En mottagen kedja sparas som en separat, skrivskyddad kopia och verifieras
+block för block (hash, länk, nodtillhörighet och signatur) innan den godtas.
+
+Eftersom bara en nod någonsin lägger till block i en viss kedja kan två noder inte
+skapa konkurrerande block på samma plats. Det uppstår alltså inga forks, och därför
+behövs ingen longest chain rule. Uppgiften föreslår longest chain, men den regeln
+löser forks genom att kasta den kortare grenen. I ett revisionssystem får ett
+åtkomstblock aldrig kastas, eftersom en borttagen läsning är precis det loggen ska
+skydda mot. En kopia som inte stämmer med den historik vi redan har avvisas i
+stället, och den egna kedjan ersätts aldrig av inkommande data.
+
+Access-log-vyn (`GET /api/patients/:id/access-log`) slår ihop den egna kedjan och
+alla mottagna kopior, filtrerar på patient och sorterar på tid, nyast först. Varje
+post har `verified`, som visar om kedjan och användarens signatur stämmer.
+
+### Fail-closed-loggning
+
+Loggningen är fail-closed (#105):
+
+- En journal lämnas aldrig ut om åtkomsten inte kunde loggas. Servern skriver
+  read-blocket innan journalen skickas. Misslyckas signering eller lagring svarar
+  servern `503` med `{ "message": "Access could not be logged" }` och skickar ingen
+  journaldata.
+- En ny anteckning räknas som skapad först när write-blocket finns. Misslyckas
+  loggningen tas anteckningen bort igen, servern svarar `503` och inget skickas live.
+  `note:created` skickas bara när write-blocket är skrivet.
+
+Mer om P2P-flödet finns i [docs/p2p-architecture.md](docs/p2p-architecture.md),
+[docs/p2p-test.md](docs/p2p-test.md) och
+[docs/live-notes-integration.md](docs/live-notes-integration.md). API, blockformat och
+socket-events beskrivs i [docs/kontrakt.md](docs/kontrakt.md).
+
+## Databasens struktur
+
+Båda servrarna på samma dator delar en SQLite-fil (`DB_PATH`) i WAL-läge, så att en
+server kan läsa medan den andra skriver. Servern sätter `journal_mode = WAL`,
+`foreign_keys = ON` och `busy_timeout = 5000`. CREATE-scriptet med seed-data är
+[docs/database.sql](docs/database.sql). Kolumnerna heter `snake_case` i databasen och
+`camelCase` i API:t. Tider sparas som ISO 8601-text i UTC.
+
+| Tabell | Syfte | Kolumner |
+|---|---|---|
+| `patients` | Personer som har en journal | `id`, `full_name`, `personal_id` (unik), `created_at` |
+| `users` | Alla som kan logga in | `id`, `username` (unik), `password_hash` (scrypt), `display_name`, `role`, `linked_patient_id`, `public_key`, `created_at` |
+| `notes` | Journalanteckningar. Texten finns bara här, aldrig i kedjan. | `id`, `patient_id`, `author_id`, `text`, `visibility`, `created_at` |
+| `access_logs` | SQL-index över den egna nodens block | `id`, `block_hash` (unik), `node_id`, `block_index`, `user_id`, `patient_id`, `action`, `timestamp` |
+
+Relationer:
+
+- `users.linked_patient_id` → `patients.id`. Sätts bara för rollen `patient`, vilket
+  kontrolleras med en CHECK.
+- `notes.patient_id` → `patients.id` (raderas med patienten) och
+  `notes.author_id` → `users.id`.
+- `access_logs.user_id` → `users.id` och `access_logs.patient_id` → `patients.id`.
+  `(node_id, block_index)` är unikt.
+
+Kontroller i schemat: `role` är en av de fem rollerna, `visibility` är `private`,
+`staff` eller `everyone`, `action` är `read` eller `write`, och en anteckning får inte
+vara tom.
+
+`users.public_key` är användarens publika Ed25519-nyckel och används för att
+verifiera signaturerna i kedjan. Kedjan är sanningen. `access_logs` används vid start
+för att kontrollera att den sparade kedjan stämmer med SQL, men access-log-vyn läses
+från kedjorna.
+
+Utöver databasfilen skapar servern två kataloger bredvid den, som båda ignoreras av
+Git: `<dbFile>.keys/` med användarnas privata nycklar och `<dbFile>.chains/` med
+en JSON-fil per nods kedja. Databas, `.keys` och `.chains` hör ihop och ska
+säkerhetskopieras och tas bort tillsammans.
+
+## Kända begränsningar
+
+- **Logout rensar bara cookien.** JWT:n spärras inte på servern, så en kopierad
+  token är giltig tills den löper ut (8 timmar).
+- **Nycklarna hanteras av servern.** Nyckelparet skapas första gången en användare
+  loggas i kedjan. Den privata nyckeln sparas okrypterad som PEM-fil i
+  `<dbFile>.keys/`, med ägarrättigheter på Unix. Det är serversignering, inte en
+  personlig signatur i webbläsaren. Den som kommer åt katalogen kan signera som
+  användaren.
+- **En delad databas.** Demon kör båda servrarna på samma dator med samma SQLite-fil.
+  Två datorer med var sin databasfil delar inte anteckningar, användare eller
+  publika nycklar.
+- **Peers identifieras med en delad hemlighet.** `verified` visar att kedjan och
+  signaturerna stämmer, men autentiserar inte den nod som skickade blocket.
+- **Mottagna kedjor ligger i minnet.** Bara den egna kedjan sparas på disk. Kopior
+  från den andra noden byggs upp igen med kedjesynk när den svarar.
+- **Klienten är inte helt kopplad till API:t än.** Sökningen och journalvyn använder
+  mockdata tills #64 är klar. Access-loggen, anteckningsformuläret och live-events
+  går redan mot riktigt API och socket.
+
+## Arbetssätt
+
+- **GitHub Issues med milestones:** v38 Skelett, v39 Bredd och v40 Stäng. Varje
+  uppgift är ett issue med ett "Klart när"-villkor.
+- **PR med granskning innan main.** `main` är skyddad och kräver en godkänd review.
+  Varje issue får en egen branch och en PR med `Closes #<nr>` enligt
+  [PR-mallen](.github/pull_request_template.md). Vi använder vanlig merge, eftersom
+  PRs ofta bygger på varandra.
+- **Datakontraktet** [docs/kontrakt.md](docs/kontrakt.md) är källan för API,
+  blockformat och socket-events. Ändringar görs via PR som hela gruppen granskar.
+- **Mötesanteckningar** från daily standups och möten finns i
+  [docs/moten/](docs/moten/), med mallen `MALL.md`.
+- **Gruppkontraktet** finns i [gruppkontrakt.md](gruppkontrakt.md).
+
+## Gruppen
+
+| Namn | GitHub | Huvudområde |
+|---|---|---|
+| Daniel | [ReJMaN83](https://github.com/ReJMaN83) | Backend: databas, inloggning, patient-routes och behörighet, audit-loggning, tester, integration och README |
+| Mats | [block-dev-mats](https://github.com/block-dev-mats) | Blockkedjan: block, signering, verifiering, persistens och manipuleringstest |
+| Fattma | [FattmaJoaque](https://github.com/FattmaJoaque) | Frontend: React-klienten, inloggning, sökning, patientvy och skyddade routes |
+| Aamod | [Balanceisjoy](https://github.com/Balanceisjoy) | P2P: Socket.IO mellan servrarna, block-broadcast, kedjesynk och live-anteckningar |
+
+## Teknisk referens
+
+Detaljerade beskrivningar av de enskilda delarna, skrivna i samband med respektive
+issue.
 
 ### P2P-hälsning (#22)
 
@@ -51,21 +352,6 @@ skickar en hälsning i vardera riktningen. Inkommande hälsningar utlöser inga 
 LAN-adressen och `PEER_URL` till den andra datorns adress. Hälsningen identifierar
 noden men autentiserar den inte. Blocköverföring och verifiering hör till #39.
 Ctrl+C stänger både inkommande och utgående Socket.IO-anslutningar.
-
-Windows: om `npm ci` försöker bygga better-sqlite3 och ger Python-fel har projektets
-låsta paket verifierats med `npm ci --ignore-scripts` i `server/`. Det använder den
-medföljande binären; kör sedan `npm test` för att kontrollera installationen.
-
-### En server per dator
-
-```bash
-cp .env.example .env    # sätt PORT, NODE_ID och PEER_URL (den andra datorns IP)
-npm run dev
-```
-
-### Databasen
-
-`DB_PATH` (standard `../data/journal.db`, relativt `server/`) pekar ut SQLite-filen som båda instanserna delar. Finns inte tabellerna skapas de från `docs/database.sql` med seed-data när servern startar. Seed-användarna (`doctor1`, `nurse1`, `clinic1`, `patient1`, `unauthorized1`) har lösenordet `demo1234`. `JWT_SECRET` måste vara samma på båda instanserna, annars godtas inte varandras cookies. Använd ett nytt `DB_PATH` för en separat demo. Stoppa servrarna och bevara databas, tillhörande nyckelkatalog (`<dbFile>.keys`) och kedjekatalog (`<dbFile>.chains`) tillsammans vid backup/återställning; behåll samma `NODE_ID`.
 
 ### Signerade access-event
 
@@ -320,27 +606,3 @@ Förväntat: `Before` och `Original` är giltiga. `After` ger
 `{ valid: false, position: 1, reason: 'Invalid block hash' }`.
 Regressionstestet finns i `server/src/chain-verification.test.js`, tillsammans
 med ett test där hashar räknas om men den ursprungliga signaturen inte stämmer.
-
-### Tester
-
-Live-note server integration for #41 is described in
-[docs/live-notes-integration.md](docs/live-notes-integration.md). Both peers use
-the `/peers` namespace; browsers use `/`. Set a shared server-only `PEER_SECRET`
-to enable note forwarding. The note POST endpoint and frontend integration are
-still required before the complete live-note scenario can be accepted.
-
-Kör `cd server && npm test`. Signerings- och access-loggtester använder temporära
-SQLite-filer och nyckelkataloger, inklusive separata processer. Kärntesterna
-importerar inte `db.js`. Den verkliga `chain`-exporten testas i en separat process
-med tillfällig env-fil och databas, inklusive återställning över två separata
-Node-processer. Persistenstesterna täcker även SQL-avvikelser, manipulerad lagring
-och rollback vid skrivfel, samt ändrad/avkortad minneshistorik före tillägg.
-Den vanliga demodatabasen öppnas inte.
-### Kontrollera att de lever
-
-```bash
-curl http://localhost:3001/api/health   # {"ok":true,"port":3001,"nodeId":"node-3001","patients":5}
-curl http://localhost:3002/api/health   # {"ok":true,"port":3002,"nodeId":"node-3002","patients":5}
-```
-
-Frontend ligger i `client/` (se #14).
