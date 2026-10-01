@@ -57,7 +57,6 @@ export function clearAuthCookie(res) {
 
 // Läser cookien och hämtar användaren ur databasen, så att en ändrad eller
 // borttagen användare inte kan fortsätta använda en gammal token.
-// Rollkontrollerna byggs i #23.
 export function userFromRequest(req) {
   const token = req.cookies?.[TOKEN_COOKIE];
   if (!token) return null;

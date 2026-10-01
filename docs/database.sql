@@ -59,10 +59,10 @@ CREATE TABLE notes (
 
 CREATE INDEX idx_notes_patient_created ON notes (patient_id, created_at DESC);
 
--- access_logs: läsindex av blockkedjorna så att GET /api/patients/:id/access-log
--- slipper gå igenom alla block. Kedjan är sanningen: en rad läggs till när ett
--- block läggs till i en kedja (egen eller peerns), och tabellen kan byggas om
--- från kedjorna. block_index behövs för id:t "<nodeId>-<index>" i API-svaret.
+-- access_logs: SQL-index över nodens egna block. Kedjan är sanningen: en rad
+-- läggs till när noden lägger till ett block i sin egen kedja. Vid start
+-- kontrolleras att den sparade kedjan stämmer med raderna (block_index och
+-- block_hash). GET /api/patients/:id/access-log läser kedjorna, inte tabellen.
 CREATE TABLE access_logs (
   id          INTEGER PRIMARY KEY,
   block_hash  TEXT NOT NULL UNIQUE,
@@ -80,10 +80,9 @@ CREATE INDEX idx_access_logs_patient_time ON access_logs (patient_id, timestamp 
 -- ---------------------------------------------------------------------------
 -- Seed-data (bara för utveckling)
 --
--- Patienter och anteckningar motsvarar Fattmas mockdata i
--- client/src/api/mockPatients.js och mockPatientDetails.js
--- ('p1' -> 1, 'n1' -> 11 osv.). Personnumren är samma som där och har
--- avsiktligt fel kontrollsiffra, så de tillhör inga riktiga personer.
+-- Patienter och anteckningar kommer från klientens tidigare mockdata
+-- ('p1' -> 1, 'n1' -> 11 osv.). Personnumren har avsiktligt fel
+-- kontrollsiffra, så de tillhör inga riktiga personer.
 -- ---------------------------------------------------------------------------
 
 INSERT INTO patients (id, full_name, personal_id, created_at) VALUES

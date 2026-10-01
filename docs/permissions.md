@@ -49,7 +49,6 @@ delivery, after authorizing membership of the `patient:<id>` room.
 | `POST /api/auth/logout` | No authentication required; clears the cookie |
 | `GET /api/patients?search=...` | Staff (`doctor`, `nurse`, `clinic`) |
 | `GET /api/patients/:id` | Staff, or the linked patient; filter notes |
-| `GET /api/patients/:id/notes` | Same patient-access and visibility rules |
 | `GET /api/patients/:id/access-log` | Same patient-access rules |
 | `POST /api/patients/:id/notes` | Staff only; validate text and visibility |
 

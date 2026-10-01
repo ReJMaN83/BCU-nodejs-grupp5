@@ -13,7 +13,7 @@ export const authRouter = Router();
 authRouter.post('/login', (req, res) => {
   const { username, password } = req.body ?? {};
   if (typeof username !== 'string' || typeof password !== 'string' || !username || !password) {
-    return res.status(400).json({ message: 'username and password required' });
+    return res.status(400).json({ message: 'Username and password required' });
   }
 
   const user = findUserByUsername(username);

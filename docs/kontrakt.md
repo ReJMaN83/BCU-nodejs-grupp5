@@ -120,7 +120,7 @@ Med Ed25519 ska algoritmargumentet vara `null`.
 
 - `GET /api/patients/:id` skapar ett `read`-block.
 - `POST /api/patients/:id/notes` skapar ett `write`-block.
-- Sökning, `GET …/notes` och `GET …/access-log` skapar inga block.
+- Sökning och `GET …/access-log` skapar inga block.
 
 ## API-endpoints
 
@@ -138,7 +138,7 @@ Gemensamt för alla anrop:
 | `400` | Felaktig request, t.ex. saknat fält | Visar `message` |
 | `401` | Inte inloggad, eller fel inloggningsuppgifter | Visar login |
 | `403` | Inloggad men saknar behörighet | Visar access denied |
-| `404` | Finns inte | Visar "hittades inte" |
+| `404` | Finns inte | Visar "Patient not found." |
 | `503` | Åtkomsten kunde inte loggas i kedjan, ingen journaldata skickas och ingen anteckning sparas | Visar `message` |
 
 ### Auth
@@ -237,33 +237,6 @@ aldrig anteckningar den inte får se:
 
 Fel: `404` om patienten inte finns.
 
-#### `GET /api/patients/:id/notes` (valfri)
-
-> **Används inte av patientvyn.** Patientvyn får anteckningarna via
-> `GET /api/patients/:id`. Den här endpointen behöver inte finnas för v38. Den är
-> till för att hämta om bara anteckningarna utan att skapa ett nytt `read`-block.
-
-Auth: samma som `GET /api/patients/:id`.
-
-Svaret är samma array, med samma filtrering och sortering, som `notes` i
-`GET /api/patients/:id`.
-
-```json
-// 200
-[
-  {
-    "id": 11,
-    "patientId": 1,
-    "authorId": 1,
-    "authorName": "Dr. Lindberg",
-    "authorRole": "doctor",
-    "text": "Patient reports improved mobility after physical therapy. Follow-up in 3 weeks.",
-    "visibility": "everyone",
-    "createdAt": "2026-09-12T12:32:00.000Z"
-  }
-]
-```
-
 #### `POST /api/patients/:id/notes`
 
 Auth: personal. `patient` och `unauthorized` får `403`.
@@ -272,7 +245,7 @@ Skapar ett `write`-block och skickar `note:created` (se Socket-events).
 
 ```json
 // request
-{ "text": "Blodtryck och vitalparametrar normala.", "visibility": "staff" }
+{ "text": "Blood pressure and vitals within normal range.", "visibility": "staff" }
 
 // 201
 {
@@ -281,7 +254,7 @@ Skapar ett `write`-block och skickar `note:created` (se Socket-events).
   "authorId": 2,
   "authorName": "Nurse Åström",
   "authorRole": "nurse",
-  "text": "Blodtryck och vitalparametrar normala.",
+  "text": "Blood pressure and vitals within normal range.",
   "visibility": "staff",
   "createdAt": "2026-09-18T09:20:00.000Z"
 }
@@ -463,7 +436,7 @@ används mot peer och mot webbklient.
     "authorId": 2,
     "authorName": "Nurse Åström",
     "authorRole": "nurse",
-    "text": "Blodtryck och vitalparametrar normala.",
+    "text": "Blood pressure and vitals within normal range.",
     "visibility": "staff",
     "createdAt": "2026-09-18T09:20:00.000Z"
   }

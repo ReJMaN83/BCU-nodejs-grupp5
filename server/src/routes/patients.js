@@ -110,14 +110,6 @@ patientsRouter.get('/:id', requirePatientAccess, async (req, res) => {
   res.json({ ...patient, notes: notesFor(req.patientId, req.user) });
 });
 
-patientsRouter.get('/:id/notes', requirePatientAccess, (req, res) => {
-  if (!selectPatient.get(req.patientId)) {
-    return res.status(404).json({ message: 'Patient not found' });
-  }
-
-  res.json(notesFor(req.patientId, req.user));
-});
-
 // Bara personal skriver anteckningar. Ett lyckat anrop blir ett signerat
 // write-block i nodens egen kedja; själva texten hamnar aldrig i kedjan (beslut c).
 patientsRouter.post(
@@ -131,10 +123,10 @@ patientsRouter.post(
 
     const { text, visibility } = req.body ?? {};
     if (typeof text !== 'string' || text.trim() === '') {
-      return res.status(400).json({ message: 'text is required' });
+      return res.status(400).json({ message: 'Text is required' });
     }
     if (!VISIBILITIES.includes(visibility)) {
-      return res.status(400).json({ message: 'visibility must be private, staff or everyone' });
+      return res.status(400).json({ message: 'Visibility must be private, staff or everyone' });
     }
 
     const { lastInsertRowid } = insertNote.run({

@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 // Tester för behörighetsmatrisen i docs/permissions.md (#27). Anteckningarnas
 // skapande och synlighet testas redan i notes.test.js.
@@ -58,11 +58,9 @@ function login(username, password = PASSWORD) {
   return request('/api/auth/login', { method: 'POST', body: { username, password } });
 }
 
-// Alla skyddade patient-endpoints för ett patient-id.
 function patientEndpoints(patientId) {
   return [
     ['GET', `/api/patients/${patientId}`],
-    ['GET', `/api/patients/${patientId}/notes`],
     ['POST', `/api/patients/${patientId}/notes`, { text: 'Permission test', visibility: 'everyone' }],
     ['GET', `/api/patients/${patientId}/access-log`],
   ];
@@ -171,9 +169,8 @@ describe('patient search', () => {
 });
 
 describe('staff access to any patient', () => {
-  it.each(STAFF)('lets %s read record, notes and access log of patient 2', async (username) => {
-    for (const path of [`/api/patients/${OTHER_PATIENT}`, `/api/patients/${OTHER_PATIENT}/notes`,
-      `/api/patients/${OTHER_PATIENT}/access-log`]) {
+  it.each(STAFF)('lets %s read record and access log of patient 2', async (username) => {
+    for (const path of [`/api/patients/${OTHER_PATIENT}`, `/api/patients/${OTHER_PATIENT}/access-log`]) {
       expect((await as(username, path)).status).toBe(200);
     }
   });
@@ -183,11 +180,7 @@ describe('patient1 and its own record', () => {
   it('can read its own record, notes and access log', async () => {
     const record = await as('patient1', `/api/patients/${OWN_PATIENT}`);
     expect(record.status).toBe(200);
-    expect(await record.json()).toMatchObject({ id: OWN_PATIENT, fullName: 'Anna Karlsson' });
-
-    const notes = await as('patient1', `/api/patients/${OWN_PATIENT}/notes`);
-    expect(notes.status).toBe(200);
-    expect(Array.isArray(await notes.json())).toBe(true);
+    expect(await record.json()).toMatchObject({ id: OWN_PATIENT, fullName: 'Anna Karlsson', notes: expect.any(Array) });
 
     const log = await as('patient1', `/api/patients/${OWN_PATIENT}/access-log`);
     expect(log.status).toBe(200);
@@ -228,11 +221,9 @@ describe('unauthorized1', () => {
 });
 
 describe('access blocks', () => {
-  it.each([...STAFF, 'patient1'])('search, notes list and access log create no block for %s', async (username) => {
-    // Låt read-block från tidigare tester hinna skrivas (se nedan).
-    await new Promise((resolve) => setTimeout(resolve, 50));
+  it.each([...STAFF, 'patient1'])('search and access log create no block for %s', async (username) => {
     const before = chainLength();
-    const paths = [`/api/patients/${OWN_PATIENT}/notes`, `/api/patients/${OWN_PATIENT}/access-log`];
+    const paths = [`/api/patients/${OWN_PATIENT}/access-log`];
     if (username !== 'patient1') paths.push('/api/patients?search=', '/api/patients?search=anna');
 
     for (const path of paths) {
@@ -247,11 +238,6 @@ describe('access blocks', () => {
 
     const res = await as(username, `/api/patients/${OWN_PATIENT}`);
     expect(res.status).toBe(200);
-
-    // På main skrivs blocket när svaret gått iväg (rättas i #105), så testet
-    // väntar in det i stället för att kräva det före svaret.
-    await vi.waitFor(() => expect(chainLength()).toBe(before + 1));
-    await new Promise((resolve) => setTimeout(resolve, 50));
     expect(chainLength()).toBe(before + 1);
     expect(lastBlock().data).toMatchObject({ userId: id, role, patientId: OWN_PATIENT, action: 'read' });
   });

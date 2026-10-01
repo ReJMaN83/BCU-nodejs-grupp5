@@ -10,7 +10,7 @@ const TABLES = ['patients', 'users', 'notes', 'access_logs'];
 
 // Öppnar databasen och skapar schema + seed om tabellerna saknas.
 // Relativa sökvägar utgår från server/, så båda instanserna hamnar på samma fil
-// oavsett varifrån de startas. ':memory:' fungerar för tester.
+// oavsett varifrån de startas.
 export function openDatabase(dbPath) {
   const file = dbPath === ':memory:' ? dbPath : resolve(serverDir, dbPath);
   if (file !== ':memory:') mkdirSync(dirname(file), { recursive: true });
