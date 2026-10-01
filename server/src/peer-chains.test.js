@@ -22,17 +22,15 @@ function fixture() {
   const event = { userId: 1, role: 'doctor', patientId: 1, action: 'read' };
   const signature = sign(null, Buffer.from(JSON.stringify({ ...event, timestamp })), privateKey).toString('base64');
   const block = chain.addBlock({ ...event, signature, publicKey: pem }, timestamp);
-  return { store, chain, block, db };
+  return { store, chain, block };
 }
 
 it('stores a signed foreign block separately and ignores duplicates', () => {
   const { store, block } = fixture();
-  const local = new Blockchain('node-b');
   const message = { nodeId: 'node-a', block };
   expect(store.receive(message, 'node-a')).toBe('accepted');
   expect(store.receive(message, 'node-a')).toBe('duplicate');
   expect(store.getChain('node-a')).toHaveLength(2);
-  expect(local.chain).toHaveLength(1);
   block.data.patientId = 999;
   const snapshot = store.getChain('node-a');
   snapshot[1].data.patientId = 888;

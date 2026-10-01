@@ -1,3 +1,4 @@
+import cookieParser from 'cookie-parser';
 import { createApp } from './app.js';
 import { config } from './config.js';
 import { db, dbFile, schemaCreated } from './db.js';
@@ -6,7 +7,6 @@ import { createPeer } from './peer.js';
 import { createPeerChains } from './peer-chains.js';
 import { createAccessSigner } from './access-signing.js';
 import { setBlockBroadcaster, setPeerChainReader } from './audit-logger.js';
-import cookieParser from 'cookie-parser';
 import { userFromRequest } from './auth.js';
 import { createNoteEvents } from './note-events.js';
 import { setNotePublisher } from './notes-live.js';
@@ -22,10 +22,14 @@ const server = app.listen(config.port, () => {
 const signer = createAccessSigner(db, `${dbFile}.keys`);
 const peerChains = createPeerChains(config.nodeId, signer.verifyAccessEvent);
 const parseCookies = cookieParser();
-const notes = createNoteEvents({ nodeId: config.nodeId, db, authenticate: (request) => {
-  parseCookies(request, {}, () => {});
-  return userFromRequest(request);
-} });
+const notes = createNoteEvents({
+  nodeId: config.nodeId,
+  db,
+  authenticate: (request) => {
+    parseCookies(request, {}, () => {});
+    return userFromRequest(request);
+  },
+});
 const peer = createPeer(server, {
   nodeId: config.nodeId,
   peerUrl: config.peerUrl,

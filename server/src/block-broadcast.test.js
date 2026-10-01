@@ -61,14 +61,8 @@ it('broadcasts real signed audit blocks between two servers without echoing', as
       expect(logs[1]).toContain('peer:hello from node-0');
     }, { timeout: 10000 });
     for (const [index, port] of ports.entries()) {
-      const login = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'doctor1', password: 'demo1234' }),
-      });
-      expect(login.status).toBe(200);
-      const cookie = login.headers.get('set-cookie').split(';')[0];
       const response = await fetch(`http://127.0.0.1:${port}/api/patients/1`, {
-        headers: { Cookie: cookie },
+        headers: { Cookie: cookies[index] },
       });
       expect(response.status).toBe(200);
       await vi.waitFor(() => {

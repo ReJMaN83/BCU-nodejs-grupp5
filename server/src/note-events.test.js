@@ -58,7 +58,7 @@ it('delivers saved notes from A to authorized browser sockets on B only', async 
     expect(await join(patient.client, 2)).toEqual({ ok: false, status: 403 });
     expect(await join(doctor.client, 'p1')).toEqual({ ok: false, status: 400 });
 
-    // Simulate the backend's committed insert; no production write endpoint is added.
+    // Insert directly instead of via POST /api/patients/:id/notes, then publish like the route does.
     const insert = db.prepare('INSERT INTO notes (patient_id, author_id, text, visibility) VALUES (1, 1, ?, ?)');
     const allId = Number(insert.run('Everyone note', 'everyone').lastInsertRowid);
     const staffId = Number(insert.run('Staff note', 'staff').lastInsertRowid);

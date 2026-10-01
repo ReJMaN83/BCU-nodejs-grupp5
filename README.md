@@ -247,10 +247,9 @@ Loggningen är fail-closed (#105):
   loggningen tas anteckningen bort igen, servern svarar `503` och inget skickas live.
   `note:created` skickas bara när write-blocket är skrivet.
 
-Mer om P2P-flödet finns i [docs/p2p-architecture.md](docs/p2p-architecture.md),
-[docs/p2p-test.md](docs/p2p-test.md) och
-[docs/live-notes-integration.md](docs/live-notes-integration.md). API, blockformat och
-socket-events beskrivs i [docs/kontrakt.md](docs/kontrakt.md).
+Mer om P2P-flödet finns i [docs/p2p-architecture.md](docs/p2p-architecture.md) och
+[docs/p2p-test.md](docs/p2p-test.md). API, blockformat och socket-events beskrivs i
+[docs/kontrakt.md](docs/kontrakt.md).
 
 ## Databasens struktur
 
@@ -523,53 +522,53 @@ Varje lyckad `GET /api/patients/:id` blir ett signerat block i nodens egen kedja
 (`NODE_ID`) och en rad i `access_logs`. Nekade anrop och okända patienter loggas inte.
 `GET /api/patients/:id/access-log` läser från kedjan och visar `verified` per post.
 
-### Block broadcast (#39)
+### Blocköverföring (#39)
 
-After both nodes exchange `peer:hello`, a successful patient-record read sends
-the newly signed audit block to the peer. The receiving terminal reports
-`block:new from <nodeId>: accepted`. Each receiver keeps a separate in-memory
-replica of the sender's chain. It verifies the block structure, index, previous
-hash, calculated hash and signature against the user's registered database key
-before storing a copy. Incoming blocks are not rebroadcast or appended to the
-receiver's own chain. Reciprocal connections send once per peer; duplicate
-delivery does not append twice.
+När noderna har utbytt `peer:hello` skickas varje nytt signerat audit-block till
+peern, både när en journal läses och när en anteckning skapas. Den mottagande
+terminalen skriver `block:new from <nodeId>: accepted`. Varje mottagare håller en
+separat kopia av avsändarens kedja i minnet. Innan blocket sparas kontrolleras
+struktur, index, föregående hash, beräknad hash och signatur mot användarens
+registrerade nyckel i databasen. Inkommande block skickas inte vidare och läggs inte
+till i mottagarens egen kedja. Med anslutningar åt båda hållen skickas blocket en gång
+per peer, och ett block som kommer två gånger läggs inte till två gånger.
 
-A missing predecessor is reported as `missing-history` and rejected without
-changing stored data.
-The receiver requests missing history through chain sync (#40). Persistence
-remains separate work (#30). Received copies are not written
-to the shared SQL index again; the originating audit operation already writes it.
-Peer identity still comes from the unauthenticated hello introduced in #22;
-this is a trusted demo-network transport, not authenticated node identity.
-Cryptographic access-event verification does not authenticate the sending node.
+Saknas föregående block svarar mottagaren `missing-history` och avvisar blocket utan
+att ändra sparad data. Den saknade historiken hämtas sedan med kedjesynk (#40).
+Mottagna kopior skrivs inte till det delade SQL-indexet igen, eftersom den
+ursprungliga audit-operationen redan har skrivit dem.
 
-Use a separate `DB_PATH` and matching JWT settings for a fresh demo if your old
-database still has Swedish roles; preserve the old database and key directory.
-Both demo nodes must share the new database. Log in as `doctor1`, then request
-`GET /api/patients/1` with its cookie. Confirm `accepted` on the other node, then
-repeat in the opposite direction. `npm test` includes this full flow with two
-server processes and a temporary database, plus tampering and duplicate tests.
+En peer måste skicka rätt `PEER_SECRET` för att ansluta till `/peers`, annars nekas
+anslutningen. Nod-id:t i `peer:hello` anger peern däremot själv. Hemligheten visar
+att peern hör till demonätverket, inte vilken nod den är, och signaturerna på
+access-eventen autentiserar inte heller den skickande noden.
 
-### Chain synchronization (#40)
+Båda noderna ska dela samma databas. Logga in som `doctor1` och hämta
+`GET /api/patients/1` med cookien. Kontrollera `accepted` på den andra noden och
+upprepa sedan åt andra hållet. `npm test` kör hela flödet med två serverprocesser och
+en temporär databas, plus tester för manipulation och dubbletter.
 
-After each valid peer hello (including reconnects), nodes request one another's
-own chains with `chain:request` and `chain:response`. A response contains the
-sender's complete chain, including genesis. All hashes, links, node IDs and
-non-genesis signatures are verified before a replica is stored. Missing block
-history triggers another request. Unanswered requests retry every five seconds
-while connected; disconnect/shutdown clears pending timers.
+### Kedjesynk (#40)
 
-Each node writes only its own chain. Read-only replicas are exposed as defensive
-copies. A matching older response cannot truncate newer data, and conflicting
-history is rejected rather than selected by a longest-chain rule. No incoming
-history replaces the local owner's chain. The access-log endpoint combines
-local and replicated chains, filters by patient and sorts newest first.
+Efter varje giltig `peer:hello`, även vid återanslutning, begär noderna varandras
+egna kedjor med `chain:request` och `chain:response`. Ett svar innehåller
+avsändarens hela kedja, inklusive genesis. Alla hashar, länkar och nod-id:n, och
+signaturerna i alla block utom genesis, kontrolleras innan kopian sparas. Saknad
+historik ger en ny begäran. En obesvarad begäran skickas om var femte sekund så
+länge anslutningen finns, och väntande timers rensas vid frånkoppling och avstängning.
 
-This supports the configured direct peer topology (`PEER_URL`); it does not
-discover or relay arbitrary peers. Each node restores its own chain from disk at
-startup (#30); peer replicas are kept in memory and rebuilt with `chain:request`
-when the peer answers. See [P2P verification](docs/p2p-test.md) for tested
-scenarios and the distinction between a transport outage and a process restart.
+Varje nod skriver bara till sin egen kedja. Den som läser en mottagen kedja får en
+kopia, så den sparade kan inte ändras utifrån. Ett äldre svar som stämmer med kopian kan inte korta av nyare data, och
+historik som inte stämmer avvisas i stället för att väljas med longest chain rule.
+Ingen inkommande historik ersätter nodens egen kedja. Access-log-endpointen slår ihop
+den egna kedjan och mottagna kopior, filtrerar på patient och sorterar nyast först.
+
+Synken gäller den konfigurerade direkta peern (`PEER_URL`). Noderna letar inte upp
+andra peers och skickar inte trafik vidare. Varje nod återställer sin egen kedja från
+disk vid start (#30). Peer-kopior hålls i minnet och byggs upp igen med
+`chain:request` när peern svarar. [docs/p2p-test.md](docs/p2p-test.md) beskriver de
+testade scenarierna och skillnaden mellan ett avbrott i transporten och en omstart
+av processen.
 
 ### Verifiera kedjan (#28)
 

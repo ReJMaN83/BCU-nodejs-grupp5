@@ -81,7 +81,6 @@ it('preserves both owners histories across transport loss and catches up missing
     expect(b.replicas.getChain(a.nodeId)).toEqual(a.chain.chain);
   }, { timeout: 5000 });
 
-  // Both nodes create and broadcast independently after reconnection.
   first.peer.broadcastBlock(a.add());
   reconnected.peer.broadcastBlock(b.add());
   await vi.waitFor(() => {
