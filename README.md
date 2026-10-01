@@ -399,13 +399,14 @@ skickar en hälsning i vardera riktningen. Inkommande hälsningar utlöser inga 
 `NODE_URL` är valfri och anger nodens egen adress i hälsningen (standard
 `http://localhost:PORT`). Vid körning på olika datorer ska den sättas till den egna
 LAN-adressen och `PEER_URL` till den andra datorns adress. Hälsningen identifierar
-noden men autentiserar den inte. Blocköverföring och verifiering hör till #39.
+noden men autentiserar den inte. Block skickas och verifieras i ett eget steg (#39),
+som beskrivs längre ned.
 Ctrl+C stänger både inkommande och utgående Socket.IO-anslutningar.
 
 ### Signerade access-event
 
-Implementationsval under review: serverhanterade Ed25519-nycklar, publik PEM/SPKI
-i `users.public_key` och privat PEM/PKCS8 i `<dbFile>.keys/<userId>.pem`.
+Servern hanterar nycklarna: Ed25519, med publik PEM/SPKI i `users.public_key` och
+privat PEM/PKCS8 i `<dbFile>.keys/<userId>.pem`.
 Kataloger med suffix `.keys` ignoreras av Git. På Unix skapas katalogen med `700`
 och nyckelfilen med `600`; lagring som andra användare har rättigheter till avvisas.
 
@@ -434,17 +435,17 @@ fortfarande bara struktur och hashar.
 
 ### Access-logg för backend
 
-Den namngivna exporten `chain` finns i `server/src/chain.js`. Från exempelvis
-`server/src/middleware/auditLogger.js` kan Daniel anropa:
+Den namngivna exporten `chain` finns i `server/src/chain.js`. Den anropas från
+`recordAccess` i `server/src/audit-logger.js`:
 
 ```js
-import { chain } from '../chain.js';
+import { chain } from './chain.js';
 
 const block = chain.addAccessLog({
-  userId: authenticatedUser.id,
-  role: authenticatedUser.role,
+  userId: user.id,
+  role: user.role,
   patientId,
-  action: 'read', // eller 'write'
+  action, // 'read' eller 'write'
 });
 ```
 
@@ -470,8 +471,8 @@ nyckelfiler och kedjan ingår inte i en gemensam atomisk transaktion.
 Produktions-exporten återställer den egna kedjan vid start och sparar efter varje
 lokalt blocktillägg innan `addAccessLog` returnerar. Vid lagringsfel kastas fel och
 just det nya blocket tas bort ur minneskedjan. Signeringens eventuella
-nyckelregistrering rullas inte tillbaka. `auditLogger` kan därefter indexera det
-returnerade blocket i SQL och skicka det till peers med `block:new` (#39).
+nyckelregistrering rullas inte tillbaka. `recordAccess` indexerar sedan det
+returnerade blocket i SQL och skickar det till peers med `block:new` (#39).
 
 ### Lokal kedjepersistens (#30)
 
@@ -587,7 +588,7 @@ felaktiga blockets nollbaserade plats i arrayen, inklusive genesis på plats 0,
 oberoende av blockets lagrade `index`. Fel på kedjeindatan, till exempel en tom
 array, ger `position: null`. `reason` är en kort felorsak på engelska.
 
-För senare backend-/P2P-integration finns även den fristående funktionen:
+`access-log.js` använder den fristående funktionen, som också kan anropas direkt:
 
 ```js
 import { verifyChain } from './src/blockchain.js';

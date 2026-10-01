@@ -70,7 +70,7 @@ function indexBlock(block) {
 
 function processOptions() {
   const envFile = join(directory, 'test.env');
-  writeFileSync(envFile, `PORT=3009\nNODE_ID=${nodeId}\nDB_PATH=${dbFile}\nJWT_SECRET=restart-test-secret\n`);
+  writeFileSync(envFile, `PORT=3009\nNODE_ID=${nodeId}\nDB_PATH=${dbFile}\nJWT_SECRET=restart-test-secret\nPEER_SECRET=restart-peer-test-secret\n`);
   const env = { ...process.env };
   for (const name of ['PORT', 'NODE_ID', 'DB_PATH', 'JWT_SECRET', 'PEER_URL', 'CLIENT_ORIGIN']) delete env[name];
   return { envFile, options: { cwd: directory, env, encoding: 'utf8', timeout: 10000 } };
@@ -113,7 +113,7 @@ describe('local chain persistence', () => {
     expect(second.after.map((block) => block.index)).toEqual([0, 1, 2, 3]);
     expect(second.after[3].prevHash).toBe(first.after[2].hash);
     expect(second.verification).toEqual({ valid: true, position: null, reason: null });
-    // These are the reads used by #90's getChainLength and getChain callbacks.
+    // Same reads as the getChainLength and getChain callbacks that index.js passes to the peer layer.
     expect(second.chainLength).toBe(4);
     expect(second.snapshot).toEqual(second.after);
     expect(db.prepare('SELECT count(*) AS count FROM access_logs WHERE node_id = ?').get(nodeId).count).toBe(3);

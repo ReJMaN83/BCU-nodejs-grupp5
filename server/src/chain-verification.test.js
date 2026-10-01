@@ -75,7 +75,7 @@ describe('verifyChain', () => {
     expect(parsed[1].timestamp).toBe(timestamp);
   });
 
-  it('flags a hand-edited block in a JSON copy without altering the live chain (#31)', () => {
+  it('flags a hand-edited block in a JSON copy without altering the live chain', () => {
     accessLog.addAccessLog(event);
     const original = JSON.stringify(accessLog.blockchain.chain);
     const copy = JSON.parse(original);
