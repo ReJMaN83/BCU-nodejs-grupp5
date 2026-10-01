@@ -2,10 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import './AccessDenied.css';
 
-// IMPORTANT: this page must never receive or render any patient data,
-// route params, or query values. It only reads the current user's own
-// role/name from AuthContext — nothing patient-related — so there is
-// nothing here that could leak information to an unauthorized viewer.
+// Only reads the current user from AuthContext, never patient data, route params or query values.
 export default function AccessDenied() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();

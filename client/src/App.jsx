@@ -11,15 +11,6 @@ import Journal from './pages/Journal';
 
 // Route protection (issue #38): ProtectedRoute below redirects unauthenticated
 // users to /login and users with the wrong role to /access-denied.
-//
-// Manually verified:
-// - Direct URL navigation to /patients, /patients/:id, /journal while logged
-//   out redirects to /login.
-// - Logged in with the wrong role (e.g. patient navigating to /patients)
-//   redirects to /access-denied.
-// - Browser back/forward navigation after logout correctly re-evaluates auth
-//   state on each render; AccessDenied.jsx shows its "please sign in" variant
-//   when the user is no longer authenticated.
 
 function ProtectedRoute({ children, roles }) {
   const { user, loading } = useAuth();
@@ -46,10 +37,10 @@ function AppRoutes() {
         }
       />
 
-     {/* :id = patient id. The backend always verifies that the logged-in user
-    is actually allowed to view this specific patient (requirePatientAccess
-    in server/src/routes/patients.js), so a manipulated URL never leaks
-    another patient's data even if the client-side check were bypassed. */}
+      {/* :id = patient id. The backend always verifies that the logged-in user
+          is actually allowed to view this specific patient (requirePatientAccess
+          in server/src/routes/patients.js), so a manipulated URL never leaks
+          another patient's data even if the client-side check were bypassed. */}
       <Route
         path="/patients/:id"
         element={
