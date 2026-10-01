@@ -118,8 +118,8 @@ describe('POST /api/patients/:id/notes', () => {
       createdAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/),
     });
 
-    const list = await (await request(`/api/patients/${PATIENT_ID}/notes`, { as: username })).json();
-    expect(list).toContainEqual(note);
+    const { notes } = await (await request(`/api/patients/${PATIENT_ID}`, { as: username })).json();
+    expect(notes).toContainEqual(note);
   });
 
   it.each(['patient1', 'unauthorized1'])('returns 403 for %s', async (username) => {
@@ -251,8 +251,8 @@ describe('note:created after POST', () => {
       const res = await postNote('doctor1', { text: 'Saved anyway', visibility: 'staff' });
       expect(res.status).toBe(201);
       const note = await res.json();
-      const list = await (await request(`/api/patients/${PATIENT_ID}/notes`, { as: 'doctor1' })).json();
-      expect(list).toContainEqual(note);
+      const { notes } = await (await request(`/api/patients/${PATIENT_ID}`, { as: 'doctor1' })).json();
+      expect(notes).toContainEqual(note);
     } finally {
       setNotePublisher(notesPublish);
     }

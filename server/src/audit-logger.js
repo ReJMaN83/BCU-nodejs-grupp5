@@ -4,7 +4,7 @@ import { createAccessSigner } from './access-signing.js';
 import { db, dbFile } from './db.js';
 
 // Egen signer-instans för verifiering. Den skapar inga nycklar, utan läser
-// användarens registrerade publika nyckel (Mats modul, #12).
+// användarens registrerade publika nyckel från access-signing.js.
 const signer = createAccessSigner(db, `${dbFile}.keys`);
 
 // Läsindex av kedjan enligt docs/database.sql. Kedjan är sanningen, den här

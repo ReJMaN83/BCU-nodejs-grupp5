@@ -306,9 +306,6 @@ säkerhetskopieras och tas bort tillsammans.
   signaturerna stämmer, men autentiserar inte den nod som skickade blocket.
 - **Mottagna kedjor ligger i minnet.** Bara den egna kedjan sparas på disk. Kopior
   från den andra noden byggs upp igen med kedjesynk när den svarar.
-- **Klienten är inte helt kopplad till API:t än.** Sökningen och journalvyn använder
-  mockdata tills #64 är klar. Access-loggen, anteckningsformuläret och live-events
-  går redan mot riktigt API och socket.
 
 ## Arbetssätt
 
@@ -506,11 +503,6 @@ skrivs inte över. Saknas både fil och lokal SQL-historik börjar noden med gen
 filen skapas vid första lyckade blocktillägget. En kedja som ligger före SQL-indexet
 godtas, men saknade indexrader byggs inte upp automatiskt.
 
-**Efter uppgradering till #30:** en databas där servern redan loggat läsningar utan
-kedjefil ger startfelet `Cannot restore local chain: missing file with existing SQL
-access history`. Ta bort `data/journal.db*` (inklusive `.keys` och `.chains`) så
-skapas en ny databas med seed-data vid start.
-
 Lagring skriver en komplett temporär fil i samma katalog, synkar filinnehållet
 och publicerar med atomisk `rename`. Nya kataloger/filer får rättigheterna
 `700`/`600` på Unix och `*.chains/` ignoreras av Git. Ett fel före publicering
@@ -529,12 +521,6 @@ kedjan lagras på disk; peer-repliker hålls i minnet och byggs upp igen med cha
 Varje lyckad `GET /api/patients/:id` blir ett signerat block i nodens egen kedja
 (`NODE_ID`) och en rad i `access_logs`. Nekade anrop och okända patienter loggas inte.
 `GET /api/patients/:id/access-log` läser från kedjan och visar `verified` per post.
-
-**Utvecklingsläge:** nyckelparet för en användare skapas första gången hen läser en
-journal, och den publika nyckeln skrivs till `users.public_key`. Den lokala kedjan
-sparas och verifieras vid återställning enligt avsnittet om kedjepersistens.
-Broadcast till peer skickar signerade block med `block:new` (#39). Accessloggen
-visar nu både den egna kedjan och verifierade kopior av anslutna peers kedjor (#40).
 
 ### Block broadcast (#39)
 
