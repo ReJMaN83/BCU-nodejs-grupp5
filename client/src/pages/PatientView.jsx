@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import { api, ApiError } from '../api/client';
 import { socket } from '../api/socket';
+import AppHeader from '../components/AppHeader';
 import './PatientView.css';
 
 const VISIBILITY_LABELS = {
@@ -32,9 +33,6 @@ function formatTimestamp(isoString) {
   });
 }
 
-// Determines whether a note is visible to the current user.
-// The server already filters notes this way; this is a second line of defense
-// so the UI never renders something the user shouldn't see, even briefly.
 function isNoteVisible(note, user) {
   if (note.visibility === 'everyone') return true;
   if (note.visibility === 'staff') return STAFF_ROLES.includes(user.role);
@@ -59,7 +57,6 @@ export default function PatientView({ patientIdOverride }) {
   const [accessLog, setAccessLog] = useState([]);
   const [accessLogError, setAccessLogError] = useState(false);
 
-  // Fetch the patient record + their notes (server filters notes by visibility)
   useEffect(() => {
     if (!id) return;
 
@@ -79,7 +76,6 @@ export default function PatientView({ patientIdOverride }) {
       });
   }, [id, navigate]);
 
-  // Fetch the access log; show a notice (not a crash) if it can't be reached
   useEffect(() => {
     if (!id) return;
 
@@ -93,12 +89,10 @@ export default function PatientView({ patientIdOverride }) {
       });
   }, [id]);
 
-  // Live updates: join the patient room and listen for new notes
   useEffect(() => {
     if (!id) return;
 
     const joinRoom = () => {
-      // The server replies with { ok: true, patientId } or { ok: false, status }
       socket.timeout(2000).emit('join-patient-room', id, (err, response) => {
         if (err) {
           console.warn('Timed out while joining the patient room.');
@@ -113,20 +107,16 @@ export default function PatientView({ patientIdOverride }) {
     };
 
     const handleNoteCreated = (payload) => {
-      // payload = { originNodeId, note }
       const newNote = payload.note;
-
-      if (String(newNote.patientId) !== String(id)) return; // safety check
+      if (String(newNote.patientId) !== String(id)) return;
 
       setPatient((prev) => {
         if (!prev) return prev;
-        // Avoid duplicates (e.g. a note this user just created themselves)
         if (prev.notes.some((n) => n.id === newNote.id)) return prev;
         return { ...prev, notes: [newNote, ...prev.notes] };
       });
     };
 
-    // Joining on 'connect' also re-joins the room after a reconnect
     socket.on('connect', joinRoom);
     socket.on('note:created', handleNoteCreated);
     socket.connect();
@@ -142,6 +132,7 @@ export default function PatientView({ patientIdOverride }) {
     return (
       <div className="patient-page">
         <div className="patient-container">
+          <AppHeader />
           <p className="not-found">{patientError}</p>
         </div>
       </div>
@@ -152,6 +143,7 @@ export default function PatientView({ patientIdOverride }) {
     return (
       <div className="patient-page">
         <div className="patient-container">
+          <AppHeader />
           <p className="not-found">Loading patient data...</p>
         </div>
       </div>
@@ -162,8 +154,6 @@ export default function PatientView({ patientIdOverride }) {
   const canWriteNotes = STAFF_ROLES.includes(role);
   const visibleNotes = patient.notes.filter((note) => isNoteVisible(note, user));
 
-  // Verification summary for the access log (issue #37).
-  // `verified` is computed by verifyChain() on the backend.
   const failedCount = accessLog.filter((entry) => entry.verified === false).length;
   const allVerified =
     accessLog.length > 0 && accessLog.every((entry) => entry.verified === true);
@@ -201,6 +191,8 @@ export default function PatientView({ patientIdOverride }) {
   return (
     <div className="patient-page">
       <div className="patient-container">
+        <AppHeader />
+
         <Link to="/patients" className="back-link">
           &larr; Back to search
         </Link>
