@@ -46,17 +46,16 @@ eller `everyone` (personal och patienten själv). Hela matrisen finns i
 
 ## Skärmdumpar
 
-> **TODO:** Skärmdumparna tas efter onsdagens merge 30/9, när klienten är kopplad
-> till API:t. Bilderna läggs i `docs/screenshots/`.
 
 | Vy | Bild |
 |---|---|
 | Inloggning | ![Inloggning](docs/screenshots/login.png) |
-| Sökning (personal) | ![Sökning](docs/screenshots/search.png) |
-| Journal som läkare | ![Journal som läkare](docs/screenshots/patient-view-doctor.png) |
-| Journal som patient | ![Journal som patient](docs/screenshots/patient-view-patient.png) |
+| Sökning (personal) | ![Sökning](docs/screenshots/search-staff.png) |
+| Journal som sjuksköterska | ![Journal som sjuksköterska](docs/screenshots/patient-view-staff.png) |
+| Access-logg med verifiering | ![Access-logg](docs/screenshots/accesslog.png) |
+| Journal som patient | ![Journal som patient](docs/screenshots/patient-view-patient1.png) |
+| Journal som patient (fler anteckningar) | ![Journal som patient 2](docs/screenshots/patient-view-patient2.png) |
 | Åtkomst nekad | ![Åtkomst nekad](docs/screenshots/access-denied.png) |
-| Live-anteckning på server 2 | ![Live-anteckning](docs/screenshots/live-note.png) |
 
 ## Kom igång
 
@@ -606,3 +605,53 @@ Förväntat: `Before` och `Original` är giltiga. `After` ger
 `{ valid: false, position: 1, reason: 'Invalid block hash' }`.
 Regressionstestet finns i `server/src/chain-verification.test.js`, tillsammans
 med ett test där hashar räknas om men den ursprungliga signaturen inte stämmer.
+
+## Arbetsfördelning
+
+# Daniel (ReJMaN83): projektledning, backend och integration
+Gruppkontrakt, datakontrakt (docs/kontrakt.md) och beslut om datadelning mellan servrar
+Projektstruktur för server/ med env-styrd PORT och PEER_URL
+Databasschema och seed (docs/database.sql), delad SQLite-databas i WAL-läge
+Inloggning med JWT-cookie (/api/auth/login, /me, /logout)
+Patient-routes med requireAuth, requireRole och rollfiltrerade anteckningar, sökning
+POST /api/patients/:id/notes med synlighet och write-block, publicering av note:created
+Audit-loggning med signerade block i egen kedja, access-log-endpoint, fail-closed-loggning
+PEER_SECRET på /peers, socket-rum och peer-namespace i kontraktet
+Byte till engelska identifierare i hela koden
+Tester för behörighetsmatrisen
+README med installation, databasstruktur och arkitektur
+Mötesanteckningar 14/9, 18/9, 21/9 och 28/9
+Review-fixar i andras PRs (?), till exempel socket.io-client i #95. Det syns i commits, men omfattningen per PR är inte sammanställd.
+
+# Mats (block-dev-mats): blockkedjan
+Block-klass och Blockchain-klass med genesis, addBlock och isValid, med tester
+Nyckelpar per användare och signering av access-event
+addAccessLog för backend (access log service)
+Signaturverifiering och verifyChain(), manipuleringstest
+Persistens av kedjan per server
+Klientfix: socketen återansluter efter serveromstart (#118)
+Mötesanteckning 18/9
+Granskade och mergade flera PRs, bland annat alla frontend-PRs 30/9
+
+# Fattma (FattmaJoaque): frontend
+React och Vite med routing och API-klient (VITE_API_URL)
+Inloggningssida, sökruta och patientlista, patientvy
+Patientrollen skickas direkt till sin egen journal
+Sida för åtkomst nekad, skyddade routes med redirect till login
+Anteckningsformulär med synlighetsval kopplat till API:t
+Access-log-lista i patientvyn, live-uppdatering via socket och ack för patientrum
+Verification badge, styling, felhantering och tomma tillstånd
+Byte från mockdata till riktigt API för sökning och journal, rensning av Vite-mallen, redirect från /login (#64)
+Mötesanteckningar för vecka 39 (21/9)
+Granskade och godkände Daniels PRs (?). Det syns i reviews men är inte räknat i sin helhet.
+
+# Aamod (Balanceisjoy): P2P
+Behörighetsmatris (docs/behorighet.md)
+Medansvarig för databasschemat (#18, delad assignee med Daniel) (?)
+Socket.IO-anslutning mellan servrar (peer:hello)
+Broadcast och validering av nya block till peers
+Kedjesynk vid uppstart
+Serverdelen för live-anteckningar (note:created till behöriga klienter)
+Integrationstest för samtidiga loggar och omstarter
+Guide för två servrar och arkitekturskiss
+Mötesanteckningar 18/9 (?, issue #20 tilldelat, men PR:en är Mats #82) och 25/9
