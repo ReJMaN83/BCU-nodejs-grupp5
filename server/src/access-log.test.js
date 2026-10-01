@@ -186,7 +186,7 @@ describe('access log', () => {
   it('runs the real chain export with temporary configuration and reuses its singleton', () => {
     const productionDb = join(directory, 'production.db');
     const envFile = join(directory, 'test.env');
-    writeFileSync(envFile, `PORT=3009\nNODE_ID=test-production-node\nDB_PATH=${productionDb}\n`);
+    writeFileSync(envFile, `PORT=3009\nNODE_ID=test-production-node\nDB_PATH=${productionDb}\nJWT_SECRET=access-log-test-secret\nPEER_SECRET=access-log-peer-test-secret\n`);
     const environment = { ...process.env };
     for (const name of ['PORT', 'NODE_ID', 'DB_PATH', 'PEER_URL', 'CLIENT_ORIGIN']) delete environment[name];
     const result = JSON.parse(execFileSync(process.execPath, [exportFixture, '--env', envFile], {
