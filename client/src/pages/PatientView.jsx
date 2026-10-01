@@ -59,6 +59,8 @@ export default function PatientView({ patientIdOverride }) {
 
   const [accessLog, setAccessLog] = useState([]);
   const [accessLogError, setAccessLogError] = useState(false);
+  // Bumped when a new note arrives, so the access log is fetched again with its write block.
+  const [accessLogVersion, setAccessLogVersion] = useState(0);
 
   useEffect(() => {
     if (!id) return;
@@ -90,7 +92,7 @@ export default function PatientView({ patientIdOverride }) {
       .catch(() => {
         setAccessLogError(true);
       });
-  }, [id]);
+  }, [id, accessLogVersion]);
 
   useEffect(() => {
     if (!id) return;
@@ -118,6 +120,7 @@ export default function PatientView({ patientIdOverride }) {
         if (prev.notes.some((n) => n.id === newNote.id)) return prev;
         return { ...prev, notes: [newNote, ...prev.notes] };
       });
+      setAccessLogVersion((v) => v + 1);
     };
 
     socket.on('connect', joinRoom);
@@ -176,6 +179,7 @@ export default function PatientView({ patientIdOverride }) {
         if (prev.notes.some((n) => n.id === newNote.id)) return prev;
         return { ...prev, notes: [newNote, ...prev.notes] };
       });
+      setAccessLogVersion((v) => v + 1);
 
       setNoteText('');
     } catch (err) {
@@ -196,9 +200,11 @@ export default function PatientView({ patientIdOverride }) {
       <div className="patient-container">
         <AppHeader />
 
-        <Link to="/patients" className="back-link">
-          &larr; Back to search
-        </Link>
+        {role !== 'patient' && (
+          <Link to="/patients" className="back-link">
+            &larr; Back to search
+          </Link>
+        )}
 
         <div className="patient-header">
           <div>
