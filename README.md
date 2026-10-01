@@ -46,17 +46,16 @@ eller `everyone` (personal och patienten själv). Hela matrisen finns i
 
 ## Skärmdumpar
 
-> **TODO:** Skärmdumparna tas efter onsdagens merge 30/9, när klienten är kopplad
-> till API:t. Bilderna läggs i `docs/screenshots/`.
-
 | Vy | Bild |
 |---|---|
 | Inloggning | ![Inloggning](docs/screenshots/login.png) |
-| Sökning (personal) | ![Sökning](docs/screenshots/search.png) |
-| Journal som läkare | ![Journal som läkare](docs/screenshots/patient-view-doctor.png) |
-| Journal som patient | ![Journal som patient](docs/screenshots/patient-view-patient.png) |
+| Sökning (personal) | ![Sökning](docs/screenshots/search-staff.png) |
+| Journal som sjuksköterska | ![Journal som sjuksköterska](docs/screenshots/patient-view-staff.png) |
+| Access-logg med verifiering | ![Access-logg](docs/screenshots/accesslog.png) |
+| Journal som patient | ![Journal som patient](docs/screenshots/patient-view-patient1.png) |
+| Journal som personal, med formuläret Add a note | ![Journal som personal](docs/screenshots/patient-view-patient2.png) |
 | Åtkomst nekad | ![Åtkomst nekad](docs/screenshots/access-denied.png) |
-| Live-anteckning på server 2 | ![Live-anteckning](docs/screenshots/live-note.png) |
+| Live-anteckning från server 1 visas på server 2 | ![Live-anteckning](docs/screenshots/06-live-note-on-server-2.jpg) |
 
 ## Kom igång
 
@@ -333,6 +332,59 @@ säkerhetskopieras och tas bort tillsammans.
 | Mats | [block-dev-mats](https://github.com/block-dev-mats) | Blockkedjan: block, signering, verifiering, persistens och manipuleringstest |
 | Fattma | [FattmaJoaque](https://github.com/FattmaJoaque) | Frontend: React-klienten, inloggning, sökning, patientvy och skyddade routes |
 | Aamod | [Balanceisjoy](https://github.com/Balanceisjoy) | P2P: Socket.IO mellan servrarna, block-broadcast, kedjesynk och live-anteckningar |
+
+## Arbetsfördelning
+
+### Daniel
+
+- Gruppkontrakt, datakontrakt (`docs/kontrakt.md`) och beslut om datadelning mellan servrar
+- Projektstruktur för `server/` med env-styrd `PORT` och `PEER_URL`
+- Databasschema och seed (`docs/database.sql`), delad SQLite-databas i WAL-läge
+- Inloggning med JWT-cookie (`/api/auth/login`, `/me`, `/logout`)
+- Patient-routes med `requireAuth`, `requireRole` och rollfiltrerade anteckningar, sökning
+- `POST /api/patients/:id/notes` med synlighet och write-block, publicering av `note:created`
+- Audit-loggning med signerade block i egen kedja, access-log-endpoint, fail-closed-loggning
+- `PEER_SECRET` på `/peers`, socket-rum och peer-namespace i kontraktet
+- Byte till engelska identifierare i hela koden
+- Tester för behörighetsmatrisen
+- README med installation, databasstruktur och arkitektur
+- Mötesanteckningar 14/9, 18/9, 21/9 och 28/9
+- Review-fixar i andras PRs, till exempel `socket.io-client` i #95
+
+### Mats
+
+- Block-klass och Blockchain-klass med genesis, `addBlock` och `isValid`, med tester
+- Nyckelpar per användare och signering av access-event
+- `addAccessLog` för backend (access log service)
+- Signaturverifiering och `verifyChain()`, manipuleringstest
+- Persistens av kedjan per server
+- Klientfix: socketen återansluter efter serveromstart (#118)
+- Mötesanteckning 18/9
+- Granskade och mergade flera PRs, bland annat alla frontend-PRs 30/9
+
+### Fattma
+
+- React och Vite med routing och API-klient (`VITE_API_URL`)
+- Inloggningssida, sökruta och patientlista, patientvy
+- Patientrollen skickas direkt till sin egen journal
+- Sida för åtkomst nekad, skyddade routes med redirect till login
+- Anteckningsformulär med synlighetsval kopplat till API:t
+- Access-log-lista i patientvyn, live-uppdatering via socket och ack för patientrum
+- Verification badge, styling, felhantering och tomma tillstånd
+- Byte från mockdata till riktigt API för sökning och journal, rensning av Vite-mallen, redirect från `/login` (#64)
+- Mötesanteckningar för vecka 39 (21/9)
+- Granskade och godkände PRs
+
+### Aamod
+
+- Behörighetsmatris (`docs/permissions.md`)
+- Socket.IO-anslutning mellan servrar (`peer:hello`)
+- Broadcast och validering av nya block till peers
+- Kedjesynk vid uppstart
+- Serverdelen för live-anteckningar (`note:created` till behöriga klienter)
+- Integrationstest för samtidiga loggar och omstarter
+- Guide för två servrar och arkitekturskiss
+- Mötesanteckningar 25/9
 
 ## Teknisk referens
 
