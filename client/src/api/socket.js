@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-const BASE_URL = import.meta.env.VITE_API_URL;
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 // Connects to this browser's own server. The cookie is sent automatically
 // thanks to withCredentials, so the server can identify the logged-in user.
